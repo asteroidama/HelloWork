@@ -35,6 +35,89 @@ function loadSettings() {
     if (saved) {
         settings = { ...settings, ...JSON.parse(saved) };
     }
+
+    // ============================
+// SWIPE GESTURES
+// ============================
+
+let touchStartX = 0;
+let touchEndX = 0;
+let touchStartY = 0;
+let touchEndY = 0;
+
+function handleSwipe() {
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    
+    // Minimo 50px di swipe
+    if (Math.abs(diffX) < 50) return;
+    
+    // Verifica che sia swipe orizzontale (non verticale)
+    if (Math.abs(diffY) > Math.abs(diffX)) return;
+    
+    // Swipe su calendario = cambia mese
+    if (document.getElementById('calendario-tab').classList.contains('active')) {
+        if (diffX > 0) {
+            // Swipe right = mese precedente
+            changeCalendarMonth(-1);
+        } else {
+            // Swipe left = mese successivo
+            changeCalendarMonth(1);
+        }
+    }
+    
+    // Swipe su riepilogo = cambia mese
+    else if (document.getElementById('riepilogo-tab').classList.contains('active')) {
+        if (diffX > 0) {
+            // Swipe right = mese precedente
+            changeSummaryMonth(-1);
+        } else {
+            // Swipe left = mese successivo
+            changeSummaryMonth(1);
+        }
+    }
+}
+
+function handleTabSwipe() {
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    
+    // Minimo 100px di swipe per cambiare tab
+    if (Math.abs(diffX) < 100) return;
+    
+    // Verifica che sia swipe orizzontale
+    if (Math.abs(diffY) > Math.abs(diffX)) return;
+    
+    const calendarioTab = document.getElementById('calendario-tab');
+    const riepilogoTab = document.getElementById('riepilogo-tab');
+    
+    if (calendarioTab.classList.contains('active') && diffX < 0) {
+        // Swipe left su calendario = vai a riepilogo
+        switchTab('riepilogo');
+    } else if (riepilogoTab.classList.contains('active') && diffX > 0) {
+        // Swipe right su riepilogo = vai a calendario
+        switchTab('calendario');
+    }
+}
+
+// Event listeners per swipe
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+});
+
+document.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    
+    // Prima prova swipe per cambiare mese
+    handleSwipe();
+    
+    // Poi prova swipe per cambiare tab (solo se non ha cambiato mese)
+    if (Math.abs(touchEndX - touchStartX) >= 100) {
+        handleTabSwipe();
+    }
+});
 }
 
 function saveSettings() {
