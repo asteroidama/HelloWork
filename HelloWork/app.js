@@ -305,7 +305,7 @@ function openDayModal(dateStr, shift) {
                 <div class="shift-detail-icon">⏱️</div>
                 <div class="shift-detail-content">
                     <div class="shift-detail-label">Ore Totali</div>
-                    <div class="shift-detail-value">${shift.hours}h</div>
+                    <div class="shift-detail-value">${formatHours(parseFloat(shift.hours))}h</div>
                 </div>
             </div>
             <div class="shift-detail-item">
@@ -422,9 +422,85 @@ function closeModal() {
 
 function addShiftFromModal(dateStr) {
     closeModal();
-    switchTab('aggiungi');
-    document.getElementById('shift-date').value = dateStr;
-    document.getElementById('shift-start').focus();
+    // Apri una finestra di aggiunta turno rapida
+    showQuickAddShift(dateStr);
+}
+
+function showQuickAddShift(dateStr) {
+    const modal = document.getElementById('shift-modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    
+    const formattedDate = formatDate(dateStr);
+    title.textContent = `Aggiungi Turno - ${formattedDate}`;
+    
+    body.innerHTML = `
+        <form id="quick-shift-form" style="display: flex; flex-direction: column; gap: var(--space-md);">
+            <div class="form-group">
+                <label class="form-label">Ora Inizio</label>
+                <input type="time" id="quick-start" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ora Fine</label>
+                <input type="time" id="quick-end" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Paga Oraria (€)</label>
+                <input type="number" id="quick-hourly" class="form-input" step="0.01" value="8.00" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Note (opzionali)</label>
+                <textarea id="quick-notes" class="form-textarea" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn-primary">Aggiungi Turno</button>
+        </form>
+    `;
+    
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    document.getElementById('quick-shift-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const startTime = document.getElementById('quick-start').value;
+        const endTime = document.getElementById('quick-end').value;
+        const hourlyRate = parseFloat(document.getElementById('quick-hourly').value);
+        const notes = document.getElementById('quick-notes').value;
+        
+        // Calcola ore
+        const start = new Date(`${dateStr}T${startTime}`);
+        const end = new Date(`${dateStr}T${endTime}`);
+        
+        if (end < start) {
+            end.setDate(end.getDate() + 1);
+        }
+        
+        const hours = (end - start) / (1000 * 60 * 60);
+        const earnings = hours * hourlyRate;
+        
+        const shift = {
+            id: Date.now(),
+            date: dateStr,
+            startTime,
+            endTime,
+            hours: hours.toFixed(2),
+            hourlyRate,
+            earnings: earnings.toFixed(2),
+            notes
+        };
+        
+        shifts.push(shift);
+        saveShifts();
+        renderCalendar();
+        updateSummary();
+        
+        closeModal();
+        showToast('Turno aggiunto! ✓', 'success');
+        scheduleNotification(shift);
+    });
+    
+    // Focus sul primo campo
+    setTimeout(() => document.getElementById('quick-start').focus(), 100);
 }
 
 // ============================
@@ -535,69 +611,10 @@ function updateSummary() {
     const totalShifts = monthShifts.length;
     
     // Aggiorna UI
-    document.getElementById('total-hours').textContent = totalHours.toFixed(1);
+    document.getElementById('total-hours').textContent = formatHours(totalHours);
     document.getElementById('total-shifts').textContent = totalShifts;
     document.getElementById('total-earnings').textContent = `€ ${totalEarnings.toFixed(2)}`;
     
-    // Aggiorna grafico
-    updateChart(monthShifts);
-}
-
-function updateChart(monthShifts) {
-    const canvas = document.getElementById('hours-chart');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = canvas.offsetWidth;
-    canvas.height = 300;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    if (monthShifts.length === 0) {
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-tertiary');
-        ctx.textAlign = 'center';
-        ctx.fillText('Nessun dato disponibile per questo mese', canvas.width / 2, canvas.height / 2);
-        return;
-    }
-    
-    // Raggruppa ore per settimana
-    const weeks = {};
-    monthShifts.forEach(shift => {
-        const date = new Date(shift.date);
-        const week = getWeekNumber(date);
-        weeks[week] = (weeks[week] || 0) + parseFloat(shift.hours);
-    });
-    
-    const weekKeys = Object.keys(weeks).sort();
-    const maxHours = Math.max(...Object.values(weeks));
-    const barWidth = (canvas.width / weekKeys.length) - 20;
-    const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim();
-    const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
-    
-    weekKeys.forEach((week, index) => {
-        const hours = weeks[week];
-        const barHeight = (hours / maxHours) * (canvas.height - 60);
-        const x = index * (barWidth + 20) + 10;
-        const y = canvas.height - barHeight - 40;
-        
-        // Barra con gradiente
-        const gradient = ctx.createLinearGradient(x, y, x, y + barHeight);
-        gradient.addColorStop(0, primaryColor);
-        gradient.addColorStop(1, getComputedStyle(document.body).getPropertyValue('--primary-dark').trim());
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, y, barWidth, barHeight);
-        
-        // Testo ore
-        ctx.fillStyle = textColor;
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${hours.toFixed(1)}h`, x + barWidth / 2, y - 5);
-        
-        // Label settimana
-        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim();
-        ctx.fillText(`Sett ${week}`, x + barWidth / 2, canvas.height - 20);
-    });
 }
 
 function getWeekNumber(date) {
@@ -742,6 +759,16 @@ function formatDate(dateString) {
     const date = new Date(dateString + 'T12:00:00');
     const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
     return date.toLocaleDateString('it-IT', options);
+}
+
+function formatHours(hours) {
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    
+    if (m === 0) {
+        return `${h}h`;
+    }
+    return `${h}h ${m}m`;
 }
 
 function showToast(message, type = 'success') {
