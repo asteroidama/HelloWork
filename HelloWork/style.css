@@ -69,59 +69,113 @@ body.dark-mode {
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-/* Color Palette Variations */
-body[data-color="pink"] {
-    --primary: #FFB3BA;
-    --primary-dark: #FF8FA3;
-    --primary-light: #FFD4D9;
+/* ==========================================
+   COLOR PALETTE VARIATIONS (14 colori)
+   ========================================== */
+
+/* 1. Azzurro/Blu (default) */
+:root {
+    --primary: #5B8FB9;
+    --primary-dark: #4A7396;
+    --primary-light: #7CA9CC;
 }
 
-body[data-color="lavender"] {
-    --primary: #C5A3E6;
-    --primary-dark: #A77FD9;
-    --primary-light: #DFC4F0;
+/* 2. Azzurro Fluo */
+body[data-color="cyan"] {
+    --primary: #00D9FF;
+    --primary-dark: #00B8D9;
+    --primary-light: #5CE1FF;
 }
 
-body[data-color="mint"] {
-    --primary: #B2E7D4;
-    --primary-dark: #8DDDC0;
-    --primary-light: #D0F2E6;
+/* 3. Blu Scuro */
+body[data-color="darkblue"] {
+    --primary: #2C5F8D;
+    --primary-dark: #1E4A6D;
+    --primary-light: #4A7AA8;
 }
 
-body[data-color="peach"] {
-    --primary: #FFD4A3;
-    --primary-dark: #FFC285;
-    --primary-light: #FFE5C7;
-}
-
-body[data-color="coral"] {
-    --primary: #FF9B9B;
-    --primary-dark: #FF7F7F;
-    --primary-light: #FFB8B8;
-}
-
-body[data-color="sky"] {
-    --primary: #A8D8EA;
-    --primary-dark: #87CEEB;
-    --primary-light: #C8E8F5;
-}
-
-body[data-color="lilac"] {
-    --primary: #D4B5E8;
-    --primary-dark: #C19FDB;
-    --primary-light: #E5D4F0;
-}
-
+/* 4. Verde Salvia */
 body[data-color="sage"] {
     --primary: #B8C5B0;
     --primary-dark: #9CAF88;
     --primary-light: #D0D9CC;
 }
 
-body[data-color="gray"] {
-    --primary: #B8B8B8;
-    --primary-dark: #9E9E9E;
-    --primary-light: #D4D4D4;
+/* 5. Verde Fluo */
+body[data-color="neon-green"] {
+    --primary: #39FF14;
+    --primary-dark: #2DD910;
+    --primary-light: #6FFF52;
+}
+
+/* 6. Verde Scuro */
+body[data-color="dark-green"] {
+    --primary: #2D5A3D;
+    --primary-dark: #1F4029;
+    --primary-light: #3E7A54;
+}
+
+/* 7. Lavanda */
+body[data-color="lavender"] {
+    --primary: #C5A3E6;
+    --primary-dark: #A77FD9;
+    --primary-light: #DFC4F0;
+}
+
+/* 8. Viola */
+body[data-color="purple"] {
+    --primary: #8B5CF6;
+    --primary-dark: #7C3AED;
+    --primary-light: #A78BFA;
+}
+
+/* 9. Rosa Cipria */
+body[data-color="dusty-rose"] {
+    --primary: #D4A5A5;
+    --primary-dark: #C48A8A;
+    --primary-light: #E5C4C4;
+}
+
+/* 10. Arancione */
+body[data-color="orange"] {
+    --primary: #FF8C42;
+    --primary-dark: #E67028;
+    --primary-light: #FFA866;
+}
+
+/* 11. Giallo Scuro */
+body[data-color="dark-yellow"] {
+    --primary: #D4A017;
+    --primary-dark: #B88A0F;
+    --primary-light: #E5B838;
+}
+
+/* 12. Rosso */
+body[data-color="red"] {
+    --primary: #E63946;
+    --primary-dark: #C62828;
+    --primary-light: #EF5350;
+}
+
+/* 13. Marrone */
+body[data-color="brown"] {
+    --primary: #8B6F47;
+    --primary-dark: #6E5536;
+    --primary-light: #A8906B;
+}
+
+/* 14. Beige */
+body[data-color="beige"] {
+    --primary: #D9C6A3;
+    --primary-dark: #C4A77D;
+    --primary-light: #E8DCC4;
+}
+
+/* 15. Giallo Acceso */
+body[data-color="bright-yellow"] {
+    --primary: #FFD700;
+    --primary-dark: #E5C100;
+    --primary-light: #FFEB3B;
 }
 
 /* ==========================================
