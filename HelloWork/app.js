@@ -10,7 +10,7 @@ let settings = {
     theme: 'light',
     color: 'blue',
     notificationsEnabled: false,
-    notificationTime: 2
+    notificationTime: '21:00'
 };
 
 // Carica dati al caricamento della pagina
@@ -34,6 +34,10 @@ function loadSettings() {
     const saved = localStorage.getItem('settings');
     if (saved) {
         settings = { ...settings, ...JSON.parse(saved) };
+    }
+    // AGGIUNGI queste righe:
+    if (settings.notificationsEnabled) {
+        scheduleDailyNotification();
     }
 }
 
@@ -157,6 +161,15 @@ function setupEventListeners() {
     });
     document.getElementById('import-file').addEventListener('change', importData);
     document.getElementById('clear-data').addEventListener('click', clearAllData);
+    // Settings buttons
+document.getElementById('notifications-enabled').addEventListener('change', toggleNotifications);
+document.getElementById('notification-time').addEventListener('change', () => {  // ⬅️ AGGIUNGI
+    settings.notificationTime = document.getElementById('notification-time').value;
+    saveSettings();
+    if (settings.notificationsEnabled) {
+        scheduleDailyNotification(); // Ri-schedula con nuovo orario
+    }
+});
 }
 
 function switchTab(tabName) {
@@ -434,73 +447,121 @@ function showQuickAddShift(dateStr) {
     const formattedDate = formatDate(dateStr);
     title.textContent = `Aggiungi Turno - ${formattedDate}`;
     
+    // Calcola orari default
+    const defaultStart = '19:00';
+    const now = new Date();
+    const minutes = now.getMinutes();
+    const roundedMinutes = minutes <= 15 ? '00' : minutes <= 45 ? '30' : '00';
+    const roundedHour = minutes > 45 ? (now.getHours() + 1) % 24 : now.getHours();
+    const defaultEnd = `${String(roundedHour).padStart(2, '0')}:${roundedMinutes}`;
+    
+    // STEP 1: Mostra subito le lancette per ora INIZIO
     body.innerHTML = `
-        <form id="quick-shift-form" style="display: flex; flex-direction: column; gap: var(--space-md);">
-            <div class="form-group">
-                <label class="form-label">Ora Inizio</label>
-                <input type="time" id="quick-start" class="form-input" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Ora Fine</label>
-                <input type="time" id="quick-end" class="form-input" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Paga Oraria (€)</label>
-                <input type="number" id="quick-hourly" class="form-input" step="0.01" value="8.00" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Note (opzionali)</label>
-                <textarea id="quick-notes" class="form-textarea" rows="2"></textarea>
-            </div>
-            <button type="submit" class="btn-primary">Aggiungi Turno</button>
-        </form>
+        <div style="padding: var(--space-lg); text-align: center;">
+            <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Ora Inizio Turno</h3>
+            <input type="time" id="quick-start" value="${defaultStart}"
+                   style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                          border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                          background: var(--bg-primary); color: var(--text-primary);">
+            <button id="confirm-start" class="btn-primary" style="margin-top: var(--space-lg);">
+                Imposta Inizio
+            </button>
+        </div>
     `;
     
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     
-    document.getElementById('quick-shift-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        const startTime = document.getElementById('quick-start').value;
-        const endTime = document.getElementById('quick-end').value;
-        const hourlyRate = parseFloat(document.getElementById('quick-hourly').value);
-        const notes = document.getElementById('quick-notes').value;
-        
-        // Calcola ore
-        const start = new Date(`${dateStr}T${startTime}`);
-        const end = new Date(`${dateStr}T${endTime}`);
-        
-        if (end < start) {
-            end.setDate(end.getDate() + 1);
-        }
-        
-        const hours = (end - start) / (1000 * 60 * 60);
-        const earnings = hours * hourlyRate;
-        
-        const shift = {
-            id: Date.now(),
-            date: dateStr,
-            startTime,
-            endTime,
-            hours: hours.toFixed(2),
-            hourlyRate,
-            earnings: earnings.toFixed(2),
-            notes
-        };
-        
-        shifts.push(shift);
-        saveShifts();
-        renderCalendar();
-        updateSummary();
-        
-        closeModal();
-        showToast('Turno aggiunto! ✓', 'success');
-        scheduleNotification(shift);
-    });
-    
-    // Focus sul primo campo
+    // Focus automatico sul campo ora (apre lancette automaticamente su mobile)
     setTimeout(() => document.getElementById('quick-start').focus(), 100);
+    
+    // STEP 2: Quando conferma inizio, mostra lancette per ora FINE
+    document.getElementById('confirm-start').addEventListener('click', () => {
+        const startTime = document.getElementById('quick-start').value;
+        
+        body.innerHTML = `
+            <div style="padding: var(--space-lg); text-align: center;">
+                <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Ora Fine Turno</h3>
+                <input type="time" id="quick-end" value="${defaultEnd}"
+                       style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                              border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                              background: var(--bg-primary); color: var(--text-primary);">
+                <button id="confirm-end" class="btn-primary" style="margin-top: var(--space-lg);">
+                    Imposta Fine
+                </button>
+            </div>
+        `;
+        
+        // Focus automatico (apre lancette automaticamente)
+        setTimeout(() => document.getElementById('quick-end').focus(), 100);
+        
+        // STEP 3: Quando conferma fine, mostra form completo
+        document.getElementById('confirm-end').addEventListener('click', () => {
+            const endTime = document.getElementById('quick-end').value;
+            
+            body.innerHTML = `
+                <form id="quick-shift-form" style="display: flex; flex-direction: column; gap: var(--space-md);">
+                    <div class="form-group">
+                        <label class="form-label">Ora Inizio</label>
+                        <input type="time" id="final-start" class="form-input" value="${startTime}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ora Fine</label>
+                        <input type="time" id="final-end" class="form-input" value="${endTime}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Paga Oraria (€)</label>
+                        <input type="number" id="quick-hourly" class="form-input" step="0.01" value="8.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Note (opzionali)</label>
+                        <textarea id="quick-notes" class="form-textarea" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Conferma e Salva Turno</button>
+                </form>
+            `;
+            
+            document.getElementById('quick-shift-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const finalStart = document.getElementById('final-start').value;
+                const finalEnd = document.getElementById('final-end').value;
+                const hourlyRate = parseFloat(document.getElementById('quick-hourly').value);
+                const notes = document.getElementById('quick-notes').value;
+                
+                // Calcola ore
+                const start = new Date(`${dateStr}T${finalStart}`);
+                const end = new Date(`${dateStr}T${finalEnd}`);
+                
+                if (end < start) {
+                    end.setDate(end.getDate() + 1);
+                }
+                
+                const hours = (end - start) / (1000 * 60 * 60);
+                const earnings = hours * hourlyRate;
+                
+                const shift = {
+                    id: Date.now(),
+                    date: dateStr,
+                    startTime: finalStart,
+                    endTime: finalEnd,
+                    hours: hours.toFixed(2),
+                    hourlyRate,
+                    earnings: earnings.toFixed(2),
+                    notes
+                };
+                
+                shifts.push(shift);
+                saveShifts();
+                renderCalendar();
+                updateSummary();
+                
+                closeModal();
+                showToast('Turno aggiunto! ✓', 'success');
+                scheduleNotification(shift);
+            });
+        });
+    });
 }
 
 // ============================
@@ -631,10 +692,12 @@ function getWeekNumber(date) {
 
 function checkNotificationPermission() {
     const checkbox = document.getElementById('notifications-enabled');
+    const timeInput = document.getElementById('notification-time');  // ⬅️ AGGIUNGI
     
     if ('Notification' in window) {
         checkbox.checked = Notification.permission === 'granted';
         settings.notificationsEnabled = checkbox.checked;
+        if (timeInput) timeInput.value = settings.notificationTime;  // ⬅️ AGGIUNGI
     } else {
         checkbox.disabled = true;
     }
@@ -651,6 +714,7 @@ async function toggleNotifications() {
             return;
         }
         settings.notificationsEnabled = true;
+        scheduleDailyNotification(); // ⬅️ AGGIUNGI questa riga
         showToast('Notifiche abilitate! 🔔', 'success');
     } else {
         settings.notificationsEnabled = false;
@@ -664,24 +728,48 @@ function scheduleNotification(shift) {
     if (!settings.notificationsEnabled) return;
     if (Notification.permission !== 'granted') return;
     
-    const hoursBefore = parseInt(document.getElementById('notification-time').value);
+    // Non schedulare più le singole notifiche per turno
+    // Le notifiche saranno giornaliere e controllate da scheduleDailyNotification()
+}
+
+function scheduleDailyNotification() {
+    if (!settings.notificationsEnabled) return;
+    if (Notification.permission !== 'granted') return;
     
-    const shiftDateTime = new Date(`${shift.date}T${shift.startTime}`);
-    const notificationTime = new Date(shiftDateTime.getTime() - (hoursBefore * 60 * 60 * 1000));
-    const now = new Date();
-    
-    if (notificationTime > now) {
+    const checkAndNotify = () => {
+        const now = new Date();
+        const [hours, minutes] = settings.notificationTime.split(':');
+        const notificationTime = new Date();
+        notificationTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        // Se l'ora è già passata oggi, controlla domani
+        if (now > notificationTime) {
+            notificationTime.setDate(notificationTime.getDate() + 1);
+        }
+        
         const delay = notificationTime - now;
         
         setTimeout(() => {
-            new Notification('🍕 Hello Work! - Promemoria Turno', {
-                body: `Hai un turno tra ${hoursBefore} ore alle ${shift.startTime}`,
-                icon: 'icons/icon-192.png',
-                badge: 'icons/icon-192.png',
-                tag: `shift-${shift.id}`
-            });
+            // Controlla turni di oggi
+            const today = new Date().toISOString().split('T')[0];
+            const todayShifts = shifts.filter(s => s.date === today);
+            
+            if (todayShifts.length > 0) {
+                const shiftsText = todayShifts.map(s => `${s.startTime}-${s.endTime}`).join(', ');
+                new Notification('🍕 Hello Work! - Turni di Oggi', {
+                    body: `Hai ${todayShifts.length} turno/i oggi: ${shiftsText}`,
+                    icon: 'icons/icon-192.png',
+                    badge: 'icons/icon-192.png',
+                    tag: 'daily-reminder'
+                });
+            }
+            
+            // Ri-schedula per domani
+            scheduleDailyNotification();
         }, delay);
-    }
+    };
+    
+    checkAndNotify();
 }
 
 // ============================
