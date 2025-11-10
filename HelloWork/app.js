@@ -268,7 +268,10 @@ function createDayElement(day, month, year, isOtherMonth, isToday = false) {
         div.classList.add('has-shift');
         div.innerHTML = `
             <span class="day-number">${day}</span>
-            <span class="day-shift-time">${shift.startTime}-${shift.endTime}</span>
+            <div class="day-shift-times">
+                <span class="day-shift-time">${shift.startTime}</span>
+                <span class="day-shift-time">${shift.endTime}</span>
+            </div>
         `;
     } else {
         div.innerHTML = `<span class="day-number">${day}</span>`;
@@ -291,10 +294,10 @@ function openDayModal(dateStr, shift) {
     
     if (shift) {
         body.innerHTML = `
-            <div class="shift-detail-item">
+            <div class="shift-detail-item" style="cursor: pointer;" onclick="editShiftTime(${shift.id}, '${dateStr}')">
                 <div class="shift-detail-icon">🕐</div>
                 <div class="shift-detail-content">
-                    <div class="shift-detail-label">Orario</div>
+                    <div class="shift-detail-label">Orario (clicca per modificare)</div>
                     <div class="shift-detail-value">${shift.startTime} - ${shift.endTime}</div>
                 </div>
             </div>
@@ -341,6 +344,75 @@ function openDayModal(dateStr, shift) {
     
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+}
+
+function editShiftTime(shiftId, dateStr) {
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return;
+    
+    const modal = document.getElementById('shift-modal');
+    const body = document.getElementById('modal-body');
+    const title = document.getElementById('modal-title');
+    
+    title.textContent = 'Modifica Orario';
+    
+    body.innerHTML = `
+        <div style="padding: var(--space-lg); text-align: center;">
+            <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Inizio Turno</h3>
+            <input type="time" id="edit-start-time" value="${shift.startTime}" 
+                   style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                          border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                          background: var(--bg-primary); color: var(--text-primary);">
+            <button id="confirm-start" class="btn-primary" style="margin-top: var(--space-lg);">
+                Conferma Inizio
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('confirm-start').addEventListener('click', () => {
+        const newStart = document.getElementById('edit-start-time').value;
+        
+        body.innerHTML = `
+            <div style="padding: var(--space-lg); text-align: center;">
+                <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Fine Turno</h3>
+                <input type="time" id="edit-end-time" value="${shift.endTime}" 
+                       style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                              border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                              background: var(--bg-primary); color: var(--text-primary);">
+                <button id="confirm-end" class="btn-primary" style="margin-top: var(--space-lg);">
+                    Conferma Fine
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('confirm-end').addEventListener('click', () => {
+            const newEnd = document.getElementById('edit-end-time').value;
+            
+            // Ricalcola ore e guadagno
+            const start = new Date(`${shift.date}T${newStart}`);
+            const end = new Date(`${shift.date}T${newEnd}`);
+            
+            if (end < start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            const hours = (end - start) / (1000 * 60 * 60);
+            const earnings = hours * shift.hourlyRate;
+            
+            // Aggiorna turno
+            shift.startTime = newStart;
+            shift.endTime = newEnd;
+            shift.hours = hours.toFixed(2);
+            shift.earnings = earnings.toFixed(2);
+            
+            saveShifts();
+            renderCalendar();
+            updateSummary();
+            
+            closeModal();
+            showToast('Orario aggiornato! ✓', 'success');
+        });
+    });
 }
 
 function closeModal() {
