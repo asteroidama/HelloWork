@@ -35,89 +35,6 @@ function loadSettings() {
     if (saved) {
         settings = { ...settings, ...JSON.parse(saved) };
     }
-
-    // ============================
-// SWIPE GESTURES
-// ============================
-
-let touchStartX = 0;
-let touchEndX = 0;
-let touchStartY = 0;
-let touchEndY = 0;
-
-function handleSwipe() {
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-    
-    // Minimo 50px di swipe
-    if (Math.abs(diffX) < 50) return;
-    
-    // Verifica che sia swipe orizzontale (non verticale)
-    if (Math.abs(diffY) > Math.abs(diffX)) return;
-    
-    // Swipe su calendario = cambia mese
-    if (document.getElementById('calendario-tab').classList.contains('active')) {
-        if (diffX > 0) {
-            // Swipe right = mese precedente
-            changeCalendarMonth(-1);
-        } else {
-            // Swipe left = mese successivo
-            changeCalendarMonth(1);
-        }
-    }
-    
-    // Swipe su riepilogo = cambia mese
-    else if (document.getElementById('riepilogo-tab').classList.contains('active')) {
-        if (diffX > 0) {
-            // Swipe right = mese precedente
-            changeSummaryMonth(-1);
-        } else {
-            // Swipe left = mese successivo
-            changeSummaryMonth(1);
-        }
-    }
-}
-
-function handleTabSwipe() {
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-    
-    // Minimo 100px di swipe per cambiare tab
-    if (Math.abs(diffX) < 100) return;
-    
-    // Verifica che sia swipe orizzontale
-    if (Math.abs(diffY) > Math.abs(diffX)) return;
-    
-    const calendarioTab = document.getElementById('calendario-tab');
-    const riepilogoTab = document.getElementById('riepilogo-tab');
-    
-    if (calendarioTab.classList.contains('active') && diffX < 0) {
-        // Swipe left su calendario = vai a riepilogo
-        switchTab('riepilogo');
-    } else if (riepilogoTab.classList.contains('active') && diffX > 0) {
-        // Swipe right su riepilogo = vai a calendario
-        switchTab('calendario');
-    }
-}
-
-// Event listeners per swipe
-document.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
-});
-
-document.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    touchEndY = e.changedTouches[0].screenY;
-    
-    // Prima prova swipe per cambiare mese
-    handleSwipe();
-    
-    // Poi prova swipe per cambiare tab (solo se non ha cambiato mese)
-    if (Math.abs(touchEndX - touchStartX) >= 100) {
-        handleTabSwipe();
-    }
-});
 }
 
 function saveSettings() {
@@ -874,3 +791,78 @@ if ('serviceWorker' in navigator) {
         .then(reg => console.log('Service Worker registrato'))
         .catch(err => console.log('Errore Service Worker:', err));
 }
+
+// ============================
+// SWIPE GESTURES - VERSIONE MIGLIORATA
+// ============================
+
+let touchStartX = 0;
+let touchEndX = 0;
+let touchStartY = 0;
+let touchEndY = 0;
+let swipeTarget = null;
+
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+    swipeTarget = e.target;
+});
+
+document.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    
+    // Verifica che sia swipe orizzontale (non verticale)
+    if (Math.abs(diffY) > Math.abs(diffX)) return;
+    
+    // Minimo 50px di swipe
+    if (Math.abs(diffX) < 50) return;
+    
+    // Determina dove è avvenuto lo swipe
+    const isOnCalendarContainer = swipeTarget.closest('.calendar-container');
+    const isOnMonthSelector = swipeTarget.closest('.month-selector');
+    const isOnSummaryCards = swipeTarget.closest('.summary-cards');
+    const isOnCalendarTab = document.getElementById('calendario-tab').classList.contains('active');
+    const isOnRiepilogoTab = document.getElementById('riepilogo-tab').classList.contains('active');
+    
+    // ==========================================
+    // CALENDARIO TAB
+    // ==========================================
+    if (isOnCalendarTab) {
+        if (isOnCalendarContainer) {
+            // Swipe DENTRO il calendario = cambia mese
+            if (diffX > 0) {
+                changeCalendarMonth(-1); // Swipe destra → mese precedente
+            } else {
+                changeCalendarMonth(1);  // Swipe sinistra → mese successivo
+            }
+        } else {
+            // Swipe FUORI dal calendario = cambia tab
+            if (diffX < -100) {
+                switchTab('riepilogo'); // Swipe sinistra → vai a riepilogo
+            }
+        }
+    }
+    
+    // ==========================================
+    // RIEPILOGO TAB
+    // ==========================================
+    else if (isOnRiepilogoTab) {
+        if (isOnMonthSelector) {
+            // Swipe sulla striscia del mese = cambia mese
+            if (diffX > 0) {
+                changeSummaryMonth(-1); // Swipe destra → mese precedente
+            } else {
+                changeSummaryMonth(1);  // Swipe sinistra → mese successivo
+            }
+        } else if (!isOnSummaryCards) {
+            // Swipe fuori dalle cards = cambia tab
+            if (diffX > 100) {
+                switchTab('calendario'); // Swipe destra → vai a calendario
+            }
+        }
+    }
+});
