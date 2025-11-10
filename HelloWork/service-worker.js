@@ -1,12 +1,12 @@
 const CACHE_NAME = 'hello-work-v1';
 const urlsToCache = [
-  '/HelloWork/',
-  '/HelloWork/index.html',
-  '/HelloWork/style.css',
-  '/HelloWork/app.js',
-  '/HelloWork/manifest.json',
-  '/HelloWork/icons/icon-192.png',
-  '/HelloWork/icons/icon-512.png'
+  '/HelloWork/HelloWork/',
+  '/HelloWork/HelloWork/index.html',
+  '/HelloWork/HelloWork/style.css',
+  '/HelloWork/HelloWork/app.js',
+  '/HelloWork/HelloWork/manifest.json',
+  '/HelloWork/HelloWork/icons/icon-192.png',
+  '/HelloWork/HelloWork/icons/icon-512.png'
 ];
 
 // Installazione Service Worker

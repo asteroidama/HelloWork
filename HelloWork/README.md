@@ -74,7 +74,7 @@ App Progressive Web App (PWA) professionale per tracciare turni di lavoro, con c
    ```
 3. Vai su Settings → Pages
 4. Attiva GitHub Pages
-5. URL: `https://tuousername.github.io/HelloWork/`
+5. URL: `https://tuousername.github.io/HelloWork/HelloWork/`
 
 #### Netlify (Alternativa)
 1. Vai su [netlify.com](https://netlify.com)

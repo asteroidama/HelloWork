@@ -688,7 +688,7 @@ function showToast(message, type = 'success') {
 // ============================
 
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/HelloWork/service-worker.js')
+    navigator.serviceWorker.register('/HelloWork/HelloWork/service-worker.js')
         .then(reg => console.log('Service Worker registrato'))
         .catch(err => console.log('Errore Service Worker:', err));
 }
