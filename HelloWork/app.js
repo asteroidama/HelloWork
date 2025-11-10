@@ -305,7 +305,7 @@ function openDayModal(dateStr, shift) {
                 <div class="shift-detail-icon">⏱️</div>
                 <div class="shift-detail-content">
                     <div class="shift-detail-label">Ore Totali</div>
-                    <div class="shift-detail-value">${formatHours(parseFloat(shift.hours))}h</div>
+                    <div class="shift-detail-value">${formatHours(parseFloat(shift.hours))}</div>
                 </div>
             </div>
             <div class="shift-detail-item">
