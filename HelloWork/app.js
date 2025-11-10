@@ -1,0 +1,694 @@
+// ============================
+// INIZIALIZZAZIONE
+// ============================
+
+let deferredPrompt;
+let currentMonth = new Date();
+let calendarMonth = new Date();
+let shifts = [];
+let settings = {
+    theme: 'light',
+    color: 'blue',
+    notificationsEnabled: false,
+    notificationTime: 2
+};
+
+// Carica dati al caricamento della pagina
+document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
+    applyTheme();
+    loadShifts();
+    setupEventListeners();
+    renderCalendar();
+    updateSummary();
+    setDefaultDate();
+    checkNotificationPermission();
+    checkInstallStatus();
+});
+
+// ============================
+// GESTIONE TEMA E COLORI
+// ============================
+
+function loadSettings() {
+    const saved = localStorage.getItem('settings');
+    if (saved) {
+        settings = { ...settings, ...JSON.parse(saved) };
+    }
+}
+
+function saveSettings() {
+    localStorage.setItem('settings', JSON.stringify(settings));
+}
+
+function applyTheme() {
+    // Applica dark/light mode
+    if (settings.theme === 'dark') {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+    
+    // Applica colore
+    document.body.setAttribute('data-color', settings.color);
+    
+    // Aggiorna UI impostazioni
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === settings.theme);
+    });
+    
+    document.querySelectorAll('.color-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.color === settings.color);
+    });
+}
+
+// ============================
+// GESTIONE PWA - INSTALLAZIONE
+// ============================
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-button').classList.remove('hidden');
+});
+
+document.getElementById('install-button').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+        showToast('App installata con successo! 🎉', 'success');
+    }
+    
+    deferredPrompt = null;
+    document.getElementById('install-button').classList.add('hidden');
+});
+
+window.addEventListener('appinstalled', () => {
+    showToast('App installata! Ora puoi usarla dalla home screen', 'success');
+    checkInstallStatus();
+});
+
+function checkInstallStatus() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const statusElement = document.getElementById('install-status');
+    if (statusElement) {
+        statusElement.textContent = isStandalone ? 'Sì' : 'No';
+    }
+}
+
+// ============================
+// GESTIONE TABS E NAVIGAZIONE
+// ============================
+
+function setupEventListeners() {
+    // Tab navigation
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.dataset.tab;
+            switchTab(tabName);
+        });
+    });
+    
+    // Settings
+    document.getElementById('settings-button').addEventListener('click', openSettings);
+    document.getElementById('settings-back').addEventListener('click', closeSettings);
+    
+    // Theme buttons
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            settings.theme = btn.dataset.theme;
+            saveSettings();
+            applyTheme();
+        });
+    });
+    
+    // Color buttons
+    document.querySelectorAll('.color-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            settings.color = btn.dataset.color;
+            saveSettings();
+            applyTheme();
+        });
+    });
+    
+    // Form submission
+    document.getElementById('shift-form').addEventListener('submit', handleShiftSubmit);
+    
+    // Calendar navigation
+    document.getElementById('prev-month-cal').addEventListener('click', () => changeCalendarMonth(-1));
+    document.getElementById('next-month-cal').addEventListener('click', () => changeCalendarMonth(1));
+    
+    // Summary navigation
+    document.getElementById('prev-month').addEventListener('click', () => changeSummaryMonth(-1));
+    document.getElementById('next-month').addEventListener('click', () => changeSummaryMonth(1));
+    
+    // Modal
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.querySelector('.modal-overlay').addEventListener('click', closeModal);
+    
+    // Settings buttons
+    document.getElementById('notifications-enabled').addEventListener('change', toggleNotifications);
+    document.getElementById('export-data').addEventListener('click', exportData);
+    document.getElementById('import-data').addEventListener('click', () => {
+        document.getElementById('import-file').click();
+    });
+    document.getElementById('import-file').addEventListener('change', importData);
+    document.getElementById('clear-data').addEventListener('click', clearAllData);
+}
+
+function switchTab(tabName) {
+    // Aggiorna bottoni
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Aggiorna contenuto
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Aggiorna dati se necessario
+    if (tabName === 'riepilogo') {
+        updateSummary();
+    } else if (tabName === 'calendario') {
+        renderCalendar();
+    }
+}
+
+function openSettings() {
+    document.getElementById('settings-page').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSettings() {
+    document.getElementById('settings-page').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+// ============================
+// CALENDARIO
+// ============================
+
+function changeCalendarMonth(direction) {
+    calendarMonth.setMonth(calendarMonth.getMonth() + direction);
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    
+    // Aggiorna titolo
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                        'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    document.getElementById('calendar-month').textContent = `${monthNames[month]} ${year}`;
+    
+    // Primo e ultimo giorno del mese
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // Giorno della settimana del primo giorno (0 = domenica, ma vogliamo lunedì = 0)
+    let startDay = firstDay.getDay() - 1;
+    if (startDay === -1) startDay = 6;
+    
+    const daysInMonth = lastDay.getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    
+    const container = document.getElementById('calendar-days');
+    container.innerHTML = '';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Giorni del mese precedente
+    for (let i = startDay - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        const dayEl = createDayElement(day, month - 1, year, true);
+        container.appendChild(dayEl);
+    }
+    
+    // Giorni del mese corrente
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const isToday = date.getTime() === today.getTime();
+        const dayEl = createDayElement(day, month, year, false, isToday);
+        container.appendChild(dayEl);
+    }
+    
+    // Giorni del mese successivo
+    const totalCells = container.children.length;
+    const remainingCells = 42 - totalCells; // 6 righe x 7 giorni
+    for (let day = 1; day <= remainingCells; day++) {
+        const dayEl = createDayElement(day, month + 1, year, true);
+        container.appendChild(dayEl);
+    }
+}
+
+function createDayElement(day, month, year, isOtherMonth, isToday = false) {
+    const div = document.createElement('div');
+    div.className = 'calendar-day';
+    
+    if (isOtherMonth) {
+        div.classList.add('other-month');
+    }
+    
+    if (isToday) {
+        div.classList.add('today');
+    }
+    
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const shift = shifts.find(s => s.date === dateStr);
+    
+    if (shift) {
+        div.classList.add('has-shift');
+        div.innerHTML = `
+            <span class="day-number">${day}</span>
+            <span class="day-shift-time">${shift.startTime}-${shift.endTime}</span>
+        `;
+    } else {
+        div.innerHTML = `<span class="day-number">${day}</span>`;
+    }
+    
+    div.addEventListener('click', () => openDayModal(dateStr, shift));
+    
+    return div;
+}
+
+function openDayModal(dateStr, shift) {
+    const modal = document.getElementById('shift-modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    
+    const date = new Date(dateStr + 'T12:00:00');
+    const formattedDate = formatDate(dateStr);
+    
+    title.textContent = `Turno ${formattedDate}`;
+    
+    if (shift) {
+        body.innerHTML = `
+            <div class="shift-detail-item">
+                <div class="shift-detail-icon">🕐</div>
+                <div class="shift-detail-content">
+                    <div class="shift-detail-label">Orario</div>
+                    <div class="shift-detail-value">${shift.startTime} - ${shift.endTime}</div>
+                </div>
+            </div>
+            <div class="shift-detail-item">
+                <div class="shift-detail-icon">⏱️</div>
+                <div class="shift-detail-content">
+                    <div class="shift-detail-label">Ore Totali</div>
+                    <div class="shift-detail-value">${shift.hours}h</div>
+                </div>
+            </div>
+            <div class="shift-detail-item">
+                <div class="shift-detail-icon">💰</div>
+                <div class="shift-detail-content">
+                    <div class="shift-detail-label">Guadagno</div>
+                    <div class="shift-detail-value">€ ${shift.earnings}</div>
+                </div>
+            </div>
+            ${shift.notes ? `
+                <div class="shift-detail-item">
+                    <div class="shift-detail-icon">📝</div>
+                    <div class="shift-detail-content">
+                        <div class="shift-detail-label">Note</div>
+                        <div class="shift-detail-value">${shift.notes}</div>
+                    </div>
+                </div>
+            ` : ''}
+        `;
+    } else {
+        body.innerHTML = `
+            <div class="modal-empty-state">
+                <div class="empty-state-icon">📅</div>
+                <div class="empty-state-text">Nessun turno in questa data</div>
+                <button class="modal-add-shift-btn" onclick="addShiftFromModal('${dateStr}')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="16"/>
+                        <line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                    <span>Aggiungi Turno</span>
+                </button>
+            </div>
+        `;
+    }
+    
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+    document.getElementById('shift-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function addShiftFromModal(dateStr) {
+    closeModal();
+    switchTab('aggiungi');
+    document.getElementById('shift-date').value = dateStr;
+    document.getElementById('shift-start').focus();
+}
+
+// ============================
+// GESTIONE TURNI
+// ============================
+
+function loadShifts() {
+    const saved = localStorage.getItem('shifts');
+    shifts = saved ? JSON.parse(saved) : [];
+}
+
+function saveShifts() {
+    localStorage.setItem('shifts', JSON.stringify(shifts));
+}
+
+function setDefaultDate() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('shift-date').value = today;
+}
+
+function handleShiftSubmit(e) {
+    e.preventDefault();
+    
+    const date = document.getElementById('shift-date').value;
+    const startTime = document.getElementById('shift-start').value;
+    const endTime = document.getElementById('shift-end').value;
+    const hourlyRate = parseFloat(document.getElementById('shift-hourly').value);
+    const notes = document.getElementById('shift-notes').value;
+    
+    // Calcola ore lavorate
+    const start = new Date(`${date}T${startTime}`);
+    const end = new Date(`${date}T${endTime}`);
+    
+    // Gestisci turni notturni
+    if (end < start) {
+        end.setDate(end.getDate() + 1);
+    }
+    
+    const hours = (end - start) / (1000 * 60 * 60);
+    const earnings = hours * hourlyRate;
+    
+    const shift = {
+        id: Date.now(),
+        date,
+        startTime,
+        endTime,
+        hours: hours.toFixed(2),
+        hourlyRate,
+        earnings: earnings.toFixed(2),
+        notes
+    };
+    
+    shifts.push(shift);
+    saveShifts();
+    
+    // Reset form
+    e.target.reset();
+    setDefaultDate();
+    
+    showToast('Turno aggiunto con successo! ✓', 'success');
+    
+    // Aggiorna calendario se visibile
+    if (document.getElementById('calendario-tab').classList.contains('active')) {
+        renderCalendar();
+    }
+    
+    scheduleNotification(shift);
+}
+
+function deleteShift(id) {
+    if (!confirm('Sei sicuro di voler eliminare questo turno?')) return;
+    
+    shifts = shifts.filter(shift => shift.id !== id);
+    saveShifts();
+    renderCalendar();
+    updateSummary();
+    
+    showToast('Turno eliminato', 'success');
+}
+
+// ============================
+// RIEPILOGO E STATISTICHE
+// ============================
+
+function changeSummaryMonth(direction) {
+    currentMonth.setMonth(currentMonth.getMonth() + direction);
+    updateSummary();
+}
+
+function updateSummary() {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    
+    // Aggiorna display mese
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                        'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    document.getElementById('current-month').textContent = `${monthNames[month]} ${year}`;
+    
+    // Filtra turni del mese corrente
+    const monthShifts = shifts.filter(shift => {
+        const shiftDate = new Date(shift.date);
+        return shiftDate.getFullYear() === year && shiftDate.getMonth() === month;
+    });
+    
+    // Calcola statistiche
+    const totalHours = monthShifts.reduce((sum, shift) => sum + parseFloat(shift.hours), 0);
+    const totalEarnings = monthShifts.reduce((sum, shift) => sum + parseFloat(shift.earnings), 0);
+    const totalShifts = monthShifts.length;
+    
+    // Aggiorna UI
+    document.getElementById('total-hours').textContent = totalHours.toFixed(1);
+    document.getElementById('total-shifts').textContent = totalShifts;
+    document.getElementById('total-earnings').textContent = `€ ${totalEarnings.toFixed(2)}`;
+    
+    // Aggiorna grafico
+    updateChart(monthShifts);
+}
+
+function updateChart(monthShifts) {
+    const canvas = document.getElementById('hours-chart');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 300;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (monthShifts.length === 0) {
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-tertiary');
+        ctx.textAlign = 'center';
+        ctx.fillText('Nessun dato disponibile per questo mese', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+    
+    // Raggruppa ore per settimana
+    const weeks = {};
+    monthShifts.forEach(shift => {
+        const date = new Date(shift.date);
+        const week = getWeekNumber(date);
+        weeks[week] = (weeks[week] || 0) + parseFloat(shift.hours);
+    });
+    
+    const weekKeys = Object.keys(weeks).sort();
+    const maxHours = Math.max(...Object.values(weeks));
+    const barWidth = (canvas.width / weekKeys.length) - 20;
+    const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary').trim();
+    const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+    
+    weekKeys.forEach((week, index) => {
+        const hours = weeks[week];
+        const barHeight = (hours / maxHours) * (canvas.height - 60);
+        const x = index * (barWidth + 20) + 10;
+        const y = canvas.height - barHeight - 40;
+        
+        // Barra con gradiente
+        const gradient = ctx.createLinearGradient(x, y, x, y + barHeight);
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, getComputedStyle(document.body).getPropertyValue('--primary-dark').trim());
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, barWidth, barHeight);
+        
+        // Testo ore
+        ctx.fillStyle = textColor;
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${hours.toFixed(1)}h`, x + barWidth / 2, y - 5);
+        
+        // Label settimana
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim();
+        ctx.fillText(`Sett ${week}`, x + barWidth / 2, canvas.height - 20);
+    });
+}
+
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// ============================
+// NOTIFICHE
+// ============================
+
+function checkNotificationPermission() {
+    const checkbox = document.getElementById('notifications-enabled');
+    
+    if ('Notification' in window) {
+        checkbox.checked = Notification.permission === 'granted';
+        settings.notificationsEnabled = checkbox.checked;
+    } else {
+        checkbox.disabled = true;
+    }
+}
+
+async function toggleNotifications() {
+    const checkbox = document.getElementById('notifications-enabled');
+    
+    if (checkbox.checked) {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            checkbox.checked = false;
+            showToast('Permesso notifiche negato', 'error');
+            return;
+        }
+        settings.notificationsEnabled = true;
+        showToast('Notifiche abilitate! 🔔', 'success');
+    } else {
+        settings.notificationsEnabled = false;
+        showToast('Notifiche disabilitate', 'success');
+    }
+    
+    saveSettings();
+}
+
+function scheduleNotification(shift) {
+    if (!settings.notificationsEnabled) return;
+    if (Notification.permission !== 'granted') return;
+    
+    const hoursBefore = parseInt(document.getElementById('notification-time').value);
+    
+    const shiftDateTime = new Date(`${shift.date}T${shift.startTime}`);
+    const notificationTime = new Date(shiftDateTime.getTime() - (hoursBefore * 60 * 60 * 1000));
+    const now = new Date();
+    
+    if (notificationTime > now) {
+        const delay = notificationTime - now;
+        
+        setTimeout(() => {
+            new Notification('🍕 Hello Work! - Promemoria Turno', {
+                body: `Hai un turno tra ${hoursBefore} ore alle ${shift.startTime}`,
+                icon: 'icons/icon-192.png',
+                badge: 'icons/icon-192.png',
+                tag: `shift-${shift.id}`
+            });
+        }, delay);
+    }
+}
+
+// ============================
+// IMPORT/EXPORT DATI
+// ============================
+
+function exportData() {
+    const data = {
+        shifts,
+        settings,
+        exportDate: new Date().toISOString(),
+        version: '2.0.0'
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hello-work-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showToast('Dati esportati con successo! 💾', 'success');
+}
+
+function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target.result);
+            
+            if (!data.shifts || !Array.isArray(data.shifts)) {
+                throw new Error('Formato file non valido');
+            }
+            
+            if (confirm(`Importare ${data.shifts.length} turni? I dati attuali verranno sostituiti.`)) {
+                shifts = data.shifts;
+                if (data.settings) {
+                    settings = { ...settings, ...data.settings };
+                }
+                saveShifts();
+                saveSettings();
+                applyTheme();
+                renderCalendar();
+                updateSummary();
+                showToast('Dati importati con successo! 📥', 'success');
+            }
+        } catch (error) {
+            showToast('Errore nell\'importazione: file non valido', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function clearAllData() {
+    if (!confirm('Sei sicuro di voler cancellare TUTTI i dati? Questa azione non può essere annullata!')) return;
+    if (!confirm('Sei DAVVERO sicuro? Tutti i turni verranno eliminati permanentemente!')) return;
+    
+    shifts = [];
+    saveShifts();
+    renderCalendar();
+    updateSummary();
+    
+    showToast('Tutti i dati sono stati cancellati', 'success');
+}
+
+// ============================
+// UTILITY
+// ============================
+
+function formatDate(dateString) {
+    const date = new Date(dateString + 'T12:00:00');
+    const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+    return date.toLocaleDateString('it-IT', options);
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast ${type}`;
+    toast.classList.remove('hidden');
+    
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3000);
+}
+
+// ============================
+// SERVICE WORKER REGISTRATION
+// ============================
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/HelloWork/service-worker.js')
+        .then(reg => console.log('Service Worker registrato'))
+        .catch(err => console.log('Errore Service Worker:', err));
+}
