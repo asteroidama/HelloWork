@@ -1331,3 +1331,170 @@ body.dark-mode .app-header {
 .test-notification-btn.hidden {
     display: none;
 }
+
+/* ==========================================
+   NOTIFICATION BUTTONS CONFIGURATION
+   ========================================== */
+
+.notification-buttons-config {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+    border: 1px solid var(--border-color);
+}
+
+.config-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.button-config-item {
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+    border: 1px solid var(--border-color);
+}
+
+.button-config-item:last-child {
+    margin-bottom: 0;
+}
+
+.button-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.button-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Toggle piccolo */
+.toggle-switch-small {
+    position: relative;
+    width: 40px;
+    height: 22px;
+}
+
+.toggle-switch-small input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider-small {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    transition: var(--transition-fast);
+}
+
+.toggle-slider-small:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+}
+
+.toggle-switch-small input:checked + .toggle-slider-small {
+    background: var(--primary);
+}
+
+.toggle-switch-small input:checked + .toggle-slider-small:before {
+    transform: translateX(18px);
+}
+
+/* Input configurazione pulsanti */
+.button-config-inputs {
+    display: grid;
+    grid-template-columns: 50px 1fr 100px 100px;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
+.emoji-input {
+    text-align: center;
+    font-size: 1.25rem;
+    padding: var(--space-sm);
+}
+
+.button-text-input {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.action-select {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.action-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(91, 143, 185, 0.1);
+}
+
+.time-input {
+    padding: var(--space-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: all var(--transition-fast);
+}
+
+.time-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(91, 143, 185, 0.1);
+}
+
+/* Disabilita riga quando toggle è off */
+.button-config-item.disabled {
+    opacity: 0.5;
+}
+
+.button-config-item.disabled .button-config-inputs input,
+.button-config-item.disabled .button-config-inputs select {
+    pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .button-config-inputs {
+        grid-template-columns: 40px 1fr;
+        gap: var(--space-xs);
+    }
+    
+    .action-select,
+    .time-input {
+        grid-column: 1 / -1;
+    }
+}
