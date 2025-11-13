@@ -1,93 +1,153 @@
-const CACHE_NAME = 'hello-work-v1';
+const CACHE_NAME = 'hello-work-v2';  // ✅ Cambiato da v1 a v2
 const urlsToCache = [
-  '/HelloWork/HelloWork/',
-  '/HelloWork/HelloWork/index.html',
-  '/HelloWork/HelloWork/style.css',
-  '/HelloWork/HelloWork/app.js',
-  '/HelloWork/HelloWork/manifest.json',
-  '/HelloWork/HelloWork/icons/icon-192.png',
-  '/HelloWork/HelloWork/icons/icon-512.png'
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
-// Installazione Service Worker
-self.addEventListener('install', event => {
+// Installazione
+self.addEventListener('install', (event) => {
+  console.log('[SW] Installazione service worker v2');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Cache aperta');
+      .then((cache) => {
+        console.log('[SW] Cache aperta');
         return cache.addAll(urlsToCache);
       })
   );
+  self.skipWaiting();  // ✅ Forza attivazione immediata
 });
 
-// Attivazione Service Worker
-self.addEventListener('activate', event => {
+// Attivazione
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Attivazione service worker v2');
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map(cacheName => {
+        cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Eliminazione cache vecchia:', cacheName);
+            console.log('[SW] Eliminazione cache vecchia:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
   );
+  self.clients.claim();  // ✅ Prendi controllo immediato
 });
 
-// Intercettazione richieste
-self.addEventListener('fetch', event => {
+// Fetch
+self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        // Cache hit - restituisci la risposta dalla cache
-        if (response) {
-          return response;
-        }
-        
-        // Clona la richiesta
-        const fetchRequest = event.request.clone();
-        
-        return fetch(fetchRequest).then(response => {
-          // Controlla se abbiamo ricevuto una risposta valida
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          
-          // Clona la risposta
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          
-          return response;
-        });
-      })
+      .then((response) => response || fetch(event.request))
   );
 });
 
-// Gestione notifiche push (opzionale - per funzionalità future)
-self.addEventListener('push', event => {
-  const options = {
-    body: event.data ? event.data.text() : 'Nuova notifica da Hello Work!',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-72.png',
-    vibrate: [200, 100, 200]
-  };
+// ============================ 
+// ✅ GESTIONE NOTIFICHE INTERATTIVE
+// ============================
+
+// Ricevi messaggi dall'app
+self.addEventListener('message', (event) => {
+  console.log('[SW] Messaggio ricevuto:', event.data);
   
-  event.waitUntil(
-    self.registration.showNotification('Hello Work!', options)
-  );
+  if (event.data.type === 'SHOW_START_NOTIFICATION') {
+    console.log('[SW] Mostrando notifica inizio turno');
+    showStartNotification();
+  } else if (event.data.type === 'SHOW_END_NOTIFICATION') {
+    console.log('[SW] Mostrando notifica fine turno');
+    showEndNotification(event.data.startTime);
+  }
 });
 
-// Click su notifica
-self.addEventListener('notificationclick', event => {
+// Mostra notifica inizio turno
+function showStartNotification() {
+  console.log('[SW] showStartNotification chiamata');
+  
+  self.registration.showNotification('🍕 Hello Work!', {
+    body: 'A che ora hai attaccato oggi?',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: 'shift-start',
+    requireInteraction: true,
+    actions: [
+      { action: 'no-work', title: '❌ Non ho lavorato' },
+      { action: 'start-19', title: '🕖 19:00' },
+      { action: 'start-1930', title: '🕢 19:30' },
+      { action: 'start-other', title: '⏰ Altro orario' }
+    ]
+  }).then(() => {
+    console.log('[SW] Notifica inizio mostrata con successo');
+  }).catch(err => {
+    console.error('[SW] Errore mostrando notifica:', err);
+  });
+}
+
+// Mostra notifica fine turno
+function showEndNotification(startTime) {
+  console.log('[SW] showEndNotification chiamata con startTime:', startTime);
+  
+  self.registration.showNotification('🍕 Hello Work!', {
+    body: `A che ora hai staccato? (Inizio: ${startTime})`,
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: 'shift-end',
+    requireInteraction: true,
+    actions: [
+      { action: 'end-23', title: '🕚 23:00' },
+      { action: 'end-2330', title: '🕦 23:30' },
+      { action: 'end-00', title: '🕛 00:00' },
+      { action: 'end-other', title: '⏰ Altro orario' }
+    ]
+  }).then(() => {
+    console.log('[SW] Notifica fine mostrata con successo');
+  }).catch(err => {
+    console.error('[SW] Errore mostrando notifica fine:', err);
+  });
+}
+
+// Gestisci click su notifica
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notifica cliccata, azione:', event.action);
+  
   event.notification.close();
   
+  const action = event.action;
+  
+  // Invia azione all'app
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      console.log('[SW] Client trovati:', clientList.length);
+      
+      // Se app è aperta, invia messaggio
+      if (clientList.length > 0) {
+        console.log('[SW] Invio messaggio al client esistente');
+        clientList[0].postMessage({
+          type: 'NOTIFICATION_ACTION',
+          action: action
+        });
+        clientList[0].focus();
+      } else {
+        // Se app è chiusa, apri e invia messaggio
+        console.log('[SW] Apertura nuova finestra');
+        clients.openWindow('./').then((client) => {
+          // Aspetta che l'app si carichi
+          setTimeout(() => {
+            if (client) {
+              console.log('[SW] Invio messaggio al nuovo client');
+              client.postMessage({
+                type: 'NOTIFICATION_ACTION',
+                action: action
+              });
+            }
+          }, 1000);
+        });
+      }
+    })
   );
 });
