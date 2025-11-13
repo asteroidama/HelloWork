@@ -6,11 +6,15 @@ let deferredPrompt;
 let currentMonth = new Date();
 let calendarMonth = new Date();
 let shifts = [];
+
+// ✅ AGGIUNTA: defaultHourlyRate e showTestButton
 let settings = {
     theme: 'light',
     color: 'blue',
     notificationsEnabled: false,
-    notificationTime: '21:00'
+    notificationTime: '21:00',
+    defaultHourlyRate: 8.00,        // ✅ AGGIUNTO
+    showTestButton: false           // ✅ AGGIUNTO
 };
 
 // Carica dati al caricamento della pagina
@@ -115,11 +119,11 @@ function setupEventListeners() {
             switchTab(tabName);
         });
     });
-    
+
     // Settings
     document.getElementById('settings-button').addEventListener('click', openSettings);
     document.getElementById('settings-back').addEventListener('click', closeSettings);
-    
+
     // Theme buttons
     document.querySelectorAll('.theme-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -128,7 +132,7 @@ function setupEventListeners() {
             applyTheme();
         });
     });
-    
+
     // Color buttons
     document.querySelectorAll('.color-option').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -137,22 +141,22 @@ function setupEventListeners() {
             applyTheme();
         });
     });
-    
+
     // Form submission
     document.getElementById('shift-form').addEventListener('submit', handleShiftSubmit);
-    
+
     // Calendar navigation
     document.getElementById('prev-month-cal').addEventListener('click', () => changeCalendarMonth(-1));
     document.getElementById('next-month-cal').addEventListener('click', () => changeCalendarMonth(1));
-    
+
     // Summary navigation
     document.getElementById('prev-month').addEventListener('click', () => changeSummaryMonth(-1));
     document.getElementById('next-month').addEventListener('click', () => changeSummaryMonth(1));
-    
+
     // Modal
     document.getElementById('modal-close').addEventListener('click', closeModal);
     document.querySelector('.modal-overlay').addEventListener('click', closeModal);
-    
+
     // Settings buttons
     document.getElementById('notifications-enabled').addEventListener('change', toggleNotifications);
     document.getElementById('export-data').addEventListener('click', exportData);
@@ -161,15 +165,25 @@ function setupEventListeners() {
     });
     document.getElementById('import-file').addEventListener('change', importData);
     document.getElementById('clear-data').addEventListener('click', clearAllData);
-    // Settings buttons
-document.getElementById('notifications-enabled').addEventListener('change', toggleNotifications);
-document.getElementById('notification-time').addEventListener('change', () => {  // ⬅️ AGGIUNGI
-    settings.notificationTime = document.getElementById('notification-time').value;
-    saveSettings();
-    if (settings.notificationsEnabled) {
-        scheduleDailyNotification(); // Ri-schedula con nuovo orario
-    }
-});
+
+    // Notification time
+    document.getElementById('notification-time').addEventListener('change', () => {
+        settings.notificationTime = document.getElementById('notification-time').value;
+        saveSettings();
+        if (settings.notificationsEnabled) {
+            scheduleDailyNotification();
+        }
+    });
+
+    // ✅ AGGIUNGI questi event listener per i nuovi controlli
+    document.getElementById('default-hourly-rate').addEventListener('change', () => {
+        settings.defaultHourlyRate = parseFloat(document.getElementById('default-hourly-rate').value);
+        saveSettings();
+        showToast('Paga oraria aggiornata ✓', 'success');
+    });
+
+    document.getElementById('show-test-notification').addEventListener('change', toggleTestButton);
+    document.getElementById('test-notification-btn').addEventListener('click', sendTestNotification);
 }
 
 function switchTab(tabName) {
@@ -178,13 +192,13 @@ function switchTab(tabName) {
         btn.classList.remove('active');
     });
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    
+
     // Aggiorna contenuto
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     document.getElementById(`${tabName}-tab`).classList.add('active');
-    
+
     // Aggiorna dati se necessario
     if (tabName === 'riepilogo') {
         updateSummary();
@@ -215,36 +229,36 @@ function changeCalendarMonth(direction) {
 function renderCalendar() {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
-    
+
     // Aggiorna titolo
     const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-                        'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+        'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
     document.getElementById('calendar-month').textContent = `${monthNames[month]} ${year}`;
-    
+
     // Primo e ultimo giorno del mese
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
+
     // Giorno della settimana del primo giorno (0 = domenica, ma vogliamo lunedì = 0)
     let startDay = firstDay.getDay() - 1;
     if (startDay === -1) startDay = 6;
-    
+
     const daysInMonth = lastDay.getDate();
     const daysInPrevMonth = new Date(year, month, 0).getDate();
-    
+
     const container = document.getElementById('calendar-days');
     container.innerHTML = '';
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Giorni del mese precedente
     for (let i = startDay - 1; i >= 0; i--) {
         const day = daysInPrevMonth - i;
         const dayEl = createDayElement(day, month - 1, year, true);
         container.appendChild(dayEl);
     }
-    
+
     // Giorni del mese corrente
     for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month, day);
@@ -252,7 +266,7 @@ function renderCalendar() {
         const dayEl = createDayElement(day, month, year, false, isToday);
         container.appendChild(dayEl);
     }
-    
+
     // Giorni del mese successivo
     const totalCells = container.children.length;
     const remainingCells = 42 - totalCells; // 6 righe x 7 giorni
@@ -265,18 +279,16 @@ function renderCalendar() {
 function createDayElement(day, month, year, isOtherMonth, isToday = false) {
     const div = document.createElement('div');
     div.className = 'calendar-day';
-    
     if (isOtherMonth) {
         div.classList.add('other-month');
     }
-    
     if (isToday) {
         div.classList.add('today');
     }
-    
+
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const shift = shifts.find(s => s.date === dateStr);
-    
+
     if (shift) {
         div.classList.add('has-shift');
         div.innerHTML = `
@@ -289,9 +301,9 @@ function createDayElement(day, month, year, isOtherMonth, isToday = false) {
     } else {
         div.innerHTML = `<span class="day-number">${day}</span>`;
     }
-    
+
     div.addEventListener('click', () => openDayModal(dateStr, shift));
-    
+
     return div;
 }
 
@@ -299,12 +311,12 @@ function openDayModal(dateStr, shift) {
     const modal = document.getElementById('shift-modal');
     const title = document.getElementById('modal-title');
     const body = document.getElementById('modal-body');
-    
+
     const date = new Date(dateStr + 'T12:00:00');
     const formattedDate = formatDate(dateStr);
-    
+
     title.textContent = `Turno ${formattedDate}`;
-    
+
     if (shift) {
         body.innerHTML = `
             <div class="shift-detail-item" style="cursor: pointer;" onclick="editShiftTime(${shift.id}, '${dateStr}')">
@@ -329,13 +341,13 @@ function openDayModal(dateStr, shift) {
                 </div>
             </div>
             ${shift.notes ? `
-                <div class="shift-detail-item">
-                    <div class="shift-detail-icon">📝</div>
-                    <div class="shift-detail-content">
-                        <div class="shift-detail-label">Note</div>
-                        <div class="shift-detail-value">${shift.notes}</div>
-                    </div>
+            <div class="shift-detail-item">
+                <div class="shift-detail-icon">📝</div>
+                <div class="shift-detail-content">
+                    <div class="shift-detail-label">Note</div>
+                    <div class="shift-detail-value">${shift.notes}</div>
                 </div>
+            </div>
             ` : ''}
         `;
     } else {
@@ -354,7 +366,7 @@ function openDayModal(dateStr, shift) {
             </div>
         `;
     }
-    
+
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
@@ -362,67 +374,67 @@ function openDayModal(dateStr, shift) {
 function editShiftTime(shiftId, dateStr) {
     const shift = shifts.find(s => s.id === shiftId);
     if (!shift) return;
-    
+
     const modal = document.getElementById('shift-modal');
     const body = document.getElementById('modal-body');
     const title = document.getElementById('modal-title');
-    
+
     title.textContent = 'Modifica Orario';
-    
+
     body.innerHTML = `
         <div style="padding: var(--space-lg); text-align: center;">
             <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Inizio Turno</h3>
-            <input type="time" id="edit-start-time" value="${shift.startTime}" 
-                   style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
-                          border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                          background: var(--bg-primary); color: var(--text-primary);">
+            <input type="time" id="edit-start-time" value="${shift.startTime}"
+                style="font-size: 2rem; padding: var(--space-lg); width: 100%;
+                border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                background: var(--bg-primary); color: var(--text-primary);">
             <button id="confirm-start" class="btn-primary" style="margin-top: var(--space-lg);">
                 Conferma Inizio
             </button>
         </div>
     `;
-    
+
     document.getElementById('confirm-start').addEventListener('click', () => {
         const newStart = document.getElementById('edit-start-time').value;
-        
+
         body.innerHTML = `
             <div style="padding: var(--space-lg); text-align: center;">
                 <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Fine Turno</h3>
-                <input type="time" id="edit-end-time" value="${shift.endTime}" 
-                       style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
-                              border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                              background: var(--bg-primary); color: var(--text-primary);">
+                <input type="time" id="edit-end-time" value="${shift.endTime}"
+                    style="font-size: 2rem; padding: var(--space-lg); width: 100%;
+                    border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                    background: var(--bg-primary); color: var(--text-primary);">
                 <button id="confirm-end" class="btn-primary" style="margin-top: var(--space-lg);">
                     Conferma Fine
                 </button>
             </div>
         `;
-        
+
         document.getElementById('confirm-end').addEventListener('click', () => {
             const newEnd = document.getElementById('edit-end-time').value;
-            
+
             // Ricalcola ore e guadagno
             const start = new Date(`${shift.date}T${newStart}`);
             const end = new Date(`${shift.date}T${newEnd}`);
-            
+
             if (end < start) {
                 end.setDate(end.getDate() + 1);
             }
-            
+
             const hours = (end - start) / (1000 * 60 * 60);
             const earnings = hours * shift.hourlyRate;
-            
+
             // Aggiorna turno
             shift.startTime = newStart;
             shift.endTime = newEnd;
             shift.hours = hours.toFixed(2);
             shift.earnings = earnings.toFixed(2);
-            
+
             saveShifts();
             renderCalendar();
             updateSummary();
-            
             closeModal();
+
             showToast('Orario aggiornato! ✓', 'success');
         });
     });
@@ -435,7 +447,6 @@ function closeModal() {
 
 function addShiftFromModal(dateStr) {
     closeModal();
-    // Apri una finestra di aggiunta turno rapida
     showQuickAddShift(dateStr);
 }
 
@@ -443,62 +454,56 @@ function showQuickAddShift(dateStr) {
     const modal = document.getElementById('shift-modal');
     const title = document.getElementById('modal-title');
     const body = document.getElementById('modal-body');
-    
+
     const formattedDate = formatDate(dateStr);
+
     title.textContent = `Aggiungi Turno - ${formattedDate}`;
-    
-    // Calcola orari default
+
     const defaultStart = '19:00';
     const now = new Date();
     const minutes = now.getMinutes();
     const roundedMinutes = minutes <= 15 ? '00' : minutes <= 45 ? '30' : '00';
     const roundedHour = minutes > 45 ? (now.getHours() + 1) % 24 : now.getHours();
     const defaultEnd = `${String(roundedHour).padStart(2, '0')}:${roundedMinutes}`;
-    
-    // STEP 1: Mostra subito le lancette per ora INIZIO
+
     body.innerHTML = `
         <div style="padding: var(--space-lg); text-align: center;">
             <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Ora Inizio Turno</h3>
             <input type="time" id="quick-start" value="${defaultStart}"
-                   style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
-                          border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                          background: var(--bg-primary); color: var(--text-primary);">
+                style="font-size: 2rem; padding: var(--space-lg); width: 100%;
+                border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                background: var(--bg-primary); color: var(--text-primary);">
             <button id="confirm-start" class="btn-primary" style="margin-top: var(--space-lg);">
                 Imposta Inizio
             </button>
         </div>
     `;
-    
+
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    
-    // Focus automatico sul campo ora (apre lancette automaticamente su mobile)
     setTimeout(() => document.getElementById('quick-start').focus(), 100);
-    
-    // STEP 2: Quando conferma inizio, mostra lancette per ora FINE
+
     document.getElementById('confirm-start').addEventListener('click', () => {
         const startTime = document.getElementById('quick-start').value;
-        
+
         body.innerHTML = `
             <div style="padding: var(--space-lg); text-align: center;">
                 <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Ora Fine Turno</h3>
                 <input type="time" id="quick-end" value="${defaultEnd}"
-                       style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
-                              border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                              background: var(--bg-primary); color: var(--text-primary);">
+                    style="font-size: 2rem; padding: var(--space-lg); width: 100%;
+                    border: 2px solid var(--border-color); border-radius: var(--radius-md);
+                    background: var(--bg-primary); color: var(--text-primary);">
                 <button id="confirm-end" class="btn-primary" style="margin-top: var(--space-lg);">
                     Imposta Fine
                 </button>
             </div>
         `;
-        
-        // Focus automatico (apre lancette automaticamente)
+
         setTimeout(() => document.getElementById('quick-end').focus(), 100);
-        
-        // STEP 3: Quando conferma fine, mostra form completo
+
         document.getElementById('confirm-end').addEventListener('click', () => {
             const endTime = document.getElementById('quick-end').value;
-            
+
             body.innerHTML = `
                 <form id="quick-shift-form" style="display: flex; flex-direction: column; gap: var(--space-md);">
                     <div class="form-group">
@@ -520,26 +525,25 @@ function showQuickAddShift(dateStr) {
                     <button type="submit" class="btn-primary">Conferma e Salva Turno</button>
                 </form>
             `;
-            
+
             document.getElementById('quick-shift-form').addEventListener('submit', (e) => {
                 e.preventDefault();
-                
+
                 const finalStart = document.getElementById('final-start').value;
                 const finalEnd = document.getElementById('final-end').value;
                 const hourlyRate = parseFloat(document.getElementById('quick-hourly').value);
                 const notes = document.getElementById('quick-notes').value;
-                
-                // Calcola ore
+
                 const start = new Date(`${dateStr}T${finalStart}`);
                 const end = new Date(`${dateStr}T${finalEnd}`);
-                
+
                 if (end < start) {
                     end.setDate(end.getDate() + 1);
                 }
-                
+
                 const hours = (end - start) / (1000 * 60 * 60);
                 const earnings = hours * hourlyRate;
-                
+
                 const shift = {
                     id: Date.now(),
                     date: dateStr,
@@ -550,13 +554,13 @@ function showQuickAddShift(dateStr) {
                     earnings: earnings.toFixed(2),
                     notes
                 };
-                
+
                 shifts.push(shift);
                 saveShifts();
                 renderCalendar();
                 updateSummary();
-                
                 closeModal();
+
                 showToast('Turno aggiunto! ✓', 'success');
                 scheduleNotification(shift);
             });
@@ -584,25 +588,23 @@ function setDefaultDate() {
 
 function handleShiftSubmit(e) {
     e.preventDefault();
-    
+
     const date = document.getElementById('shift-date').value;
     const startTime = document.getElementById('shift-start').value;
     const endTime = document.getElementById('shift-end').value;
     const hourlyRate = parseFloat(document.getElementById('shift-hourly').value);
     const notes = document.getElementById('shift-notes').value;
-    
-    // Calcola ore lavorate
+
     const start = new Date(`${date}T${startTime}`);
     const end = new Date(`${date}T${endTime}`);
-    
-    // Gestisci turni notturni
+
     if (end < start) {
         end.setDate(end.getDate() + 1);
     }
-    
+
     const hours = (end - start) / (1000 * 60 * 60);
     const earnings = hours * hourlyRate;
-    
+
     const shift = {
         id: Date.now(),
         date,
@@ -613,32 +615,30 @@ function handleShiftSubmit(e) {
         earnings: earnings.toFixed(2),
         notes
     };
-    
+
     shifts.push(shift);
     saveShifts();
-    
-    // Reset form
+
     e.target.reset();
     setDefaultDate();
-    
+
     showToast('Turno aggiunto con successo! ✓', 'success');
-    
-    // Aggiorna calendario se visibile
+
     if (document.getElementById('calendario-tab').classList.contains('active')) {
         renderCalendar();
     }
-    
+
     scheduleNotification(shift);
 }
 
 function deleteShift(id) {
     if (!confirm('Sei sicuro di voler eliminare questo turno?')) return;
-    
+
     shifts = shifts.filter(shift => shift.id !== id);
     saveShifts();
     renderCalendar();
     updateSummary();
-    
+
     showToast('Turno eliminato', 'success');
 }
 
@@ -654,28 +654,23 @@ function changeSummaryMonth(direction) {
 function updateSummary() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
-    // Aggiorna display mese
+
     const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-                        'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+        'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
     document.getElementById('current-month').textContent = `${monthNames[month]} ${year}`;
-    
-    // Filtra turni del mese corrente
+
     const monthShifts = shifts.filter(shift => {
         const shiftDate = new Date(shift.date);
         return shiftDate.getFullYear() === year && shiftDate.getMonth() === month;
     });
-    
-    // Calcola statistiche
+
     const totalHours = monthShifts.reduce((sum, shift) => sum + parseFloat(shift.hours), 0);
     const totalEarnings = monthShifts.reduce((sum, shift) => sum + parseFloat(shift.earnings), 0);
     const totalShifts = monthShifts.length;
-    
-    // Aggiorna UI
+
     document.getElementById('total-hours').textContent = formatHours(totalHours);
     document.getElementById('total-shifts').textContent = totalShifts;
     document.getElementById('total-earnings').textContent = `€ ${totalEarnings.toFixed(2)}`;
-    
 }
 
 function getWeekNumber(date) {
@@ -690,14 +685,19 @@ function getWeekNumber(date) {
 // NOTIFICHE
 // ============================
 
+// ✅ MODIFICA: Aggiorna checkNotificationPermission
 function checkNotificationPermission() {
     const checkbox = document.getElementById('notifications-enabled');
-    const timeInput = document.getElementById('notification-time');  // ⬅️ AGGIUNGI
+    const timeInput = document.getElementById('notification-time');
+    const hourlyRateInput = document.getElementById('default-hourly-rate');
+    const testToggle = document.getElementById('show-test-notification');
     
     if ('Notification' in window) {
-        checkbox.checked = Notification.permission === 'granted';
-        settings.notificationsEnabled = checkbox.checked;
-        if (timeInput) timeInput.value = settings.notificationTime;  // ⬅️ AGGIUNGI
+        checkbox.checked = Notification.permission === 'granted' && settings.notificationsEnabled;
+        if (timeInput) timeInput.value = settings.notificationTime;
+        if (hourlyRateInput) hourlyRateInput.value = settings.defaultHourlyRate;
+        if (testToggle) testToggle.checked = settings.showTestButton;
+        updateTestButtonVisibility();  // ✅ AGGIUNTO
     } else {
         checkbox.disabled = true;
     }
@@ -714,7 +714,7 @@ async function toggleNotifications() {
             return;
         }
         settings.notificationsEnabled = true;
-        scheduleDailyNotification(); // ⬅️ AGGIUNGI questa riga
+        scheduleDailyNotification();
         showToast('Notifiche abilitate! 🔔', 'success');
     } else {
         settings.notificationsEnabled = false;
@@ -727,9 +727,6 @@ async function toggleNotifications() {
 function scheduleNotification(shift) {
     if (!settings.notificationsEnabled) return;
     if (Notification.permission !== 'granted') return;
-    
-    // Non schedulare più le singole notifiche per turno
-    // Le notifiche saranno giornaliere e controllate da scheduleDailyNotification()
 }
 
 function scheduleDailyNotification() {
@@ -742,7 +739,6 @@ function scheduleDailyNotification() {
         const notificationTime = new Date();
         notificationTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         
-        // Se l'ora è già passata oggi, controlla domani
         if (now > notificationTime) {
             notificationTime.setDate(notificationTime.getDate() + 1);
         }
@@ -750,26 +746,169 @@ function scheduleDailyNotification() {
         const delay = notificationTime - now;
         
         setTimeout(() => {
-            // Controlla turni di oggi
-            const today = new Date().toISOString().split('T')[0];
-            const todayShifts = shifts.filter(s => s.date === today);
+            localStorage.setItem('notification_date', new Date().toISOString().split('T')[0]);
             
-            if (todayShifts.length > 0) {
-                const shiftsText = todayShifts.map(s => `${s.startTime}-${s.endTime}`).join(', ');
-                new Notification('🍕 Hello Work! - Turni di Oggi', {
-                    body: `Hai ${todayShifts.length} turno/i oggi: ${shiftsText}`,
-                    icon: 'icons/icon-192.png',
-                    badge: 'icons/icon-192.png',
-                    tag: 'daily-reminder'
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SHOW_START_NOTIFICATION'
                 });
             }
             
-            // Ri-schedula per domani
             scheduleDailyNotification();
         }, delay);
     };
     
     checkAndNotify();
+}
+
+// ============================
+// ✅ NOTIFICHE INTERATTIVE - NUOVE FUNZIONI
+// ============================
+
+function toggleTestButton() {
+    const checkbox = document.getElementById('show-test-notification');
+    settings.showTestButton = checkbox.checked;
+    saveSettings();
+    updateTestButtonVisibility();
+    
+    if (settings.showTestButton) {
+        showToast('Pulsante test attivato 🧪', 'success');
+    } else {
+        showToast('Pulsante test nascosto', 'success');
+    }
+}
+
+function updateTestButtonVisibility() {
+    const button = document.getElementById('test-notification-btn');
+    if (button) {
+        if (settings.showTestButton) {
+            button.classList.remove('hidden');
+        } else {
+            button.classList.add('hidden');
+        }
+    }
+}
+
+async function sendTestNotification() {
+    if (!settings.notificationsEnabled) {
+        showToast('⚠️ Abilita prima le notifiche nelle impostazioni!', 'error');
+        return;
+    }
+    
+    if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            showToast('Permesso notifiche negato', 'error');
+            return;
+        }
+    }
+    
+    localStorage.setItem('notification_date', new Date().toISOString().split('T')[0]);
+    
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'SHOW_START_NOTIFICATION'
+        });
+        showToast('📱 Notifica di test inviata! Controlla la barra notifiche', 'success');
+    } else {
+        showToast('⚠️ Service Worker non pronto, ricarica la pagina', 'error');
+    }
+}
+
+// Gestisci risposta da Service Worker
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'NOTIFICATION_ACTION') {
+            handleNotificationAction(event.data.action, event.data.startTime);
+        }
+    });
+}
+
+function handleNotificationAction(action, startTime = null) {
+    const notificationDate = localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
+    
+    if (action === 'no-work') {
+        const nullShift = {
+            id: Date.now(),
+            date: notificationDate,
+            startTime: '00:00',
+            endTime: '00:00',
+            hours: 0,
+            hourlyRate: settings.defaultHourlyRate,
+            earnings: 0,
+            notes: 'Riposo'
+        };
+        shifts.push(nullShift);
+        saveShifts();
+        renderCalendar();
+        updateSummary();
+        showToast('✓ Giorno di riposo registrato', 'success');
+        
+    } else if (action === 'start-other') {
+        showToast('📝 Apri il Calendario per inserire l\'orario manualmente', 'success');
+        document.querySelector('[data-tab="calendario"]').click();
+        
+    } else if (action.startsWith('start-')) {
+        const start = action === 'start-19' ? '19:00' : '19:30';
+        localStorage.setItem('temp_shift_start', start);
+        localStorage.setItem('temp_shift_date', notificationDate);
+        
+        showToast(`⏰ Inizio turno: ${start}`, 'success');
+        
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'SHOW_END_NOTIFICATION',
+                startTime: start
+            });
+        }
+        
+    } else if (action === 'end-other') {
+        const savedStart = localStorage.getItem('temp_shift_start');
+        const savedDate = localStorage.getItem('temp_shift_date');
+        showToast('📝 Apri il Calendario per completare il turno', 'success');
+        document.querySelector('[data-tab="calendario"]').click();
+        
+    } else if (action.startsWith('end-')) {
+        const savedStart = localStorage.getItem('temp_shift_start');
+        const savedDate = localStorage.getItem('temp_shift_date');
+        
+        let endTime;
+        if (action === 'end-23') endTime = '23:00';
+        else if (action === 'end-2330') endTime = '23:30';
+        else if (action === 'end-00') endTime = '00:00';
+        
+        const start = new Date(`${savedDate}T${savedStart}`);
+        let end = new Date(`${savedDate}T${endTime}`);
+        
+        if (end < start) {
+            end.setDate(end.getDate() + 1);
+        }
+        
+        const hours = (end - start) / (1000 * 60 * 60);
+        const earnings = hours * settings.defaultHourlyRate;
+        
+        const shift = {
+            id: Date.now(),
+            date: savedDate,
+            startTime: savedStart,
+            endTime: endTime,
+            hours: parseFloat(hours.toFixed(2)),
+            hourlyRate: settings.defaultHourlyRate,
+            earnings: parseFloat(earnings.toFixed(2)),
+            notes: ''
+        };
+        
+        shifts.push(shift);
+        saveShifts();
+        
+        localStorage.removeItem('temp_shift_start');
+        localStorage.removeItem('temp_shift_date');
+        localStorage.removeItem('notification_date');
+        
+        renderCalendar();
+        updateSummary();
+        showToast(`✓ Turno registrato! ${hours.toFixed(1)}h = €${earnings.toFixed(2)}`, 'success');
+    }
 }
 
 // ============================
@@ -813,17 +952,20 @@ function importData(e) {
                 if (data.settings) {
                     settings = { ...settings, ...data.settings };
                 }
+                
                 saveShifts();
                 saveSettings();
                 applyTheme();
                 renderCalendar();
                 updateSummary();
+                
                 showToast('Dati importati con successo! 📥', 'success');
             }
         } catch (error) {
             showToast('Errore nell\'importazione: file non valido', 'error');
         }
     };
+    
     reader.readAsText(file);
 }
 
@@ -852,7 +994,6 @@ function formatDate(dateString) {
 function formatHours(hours) {
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
-    
     if (m === 0) {
         return `${h}h`;
     }
@@ -864,7 +1005,6 @@ function showToast(message, type = 'success') {
     toast.textContent = message;
     toast.className = `toast ${type}`;
     toast.classList.remove('hidden');
-    
     setTimeout(() => {
         toast.classList.add('hidden');
     }, 3000);
@@ -881,7 +1021,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============================
-// SWIPE GESTURES - VERSIONE MIGLIORATA
+// SWIPE GESTURES
 // ============================
 
 let touchStartX = 0;
@@ -899,57 +1039,43 @@ document.addEventListener('touchstart', (e) => {
 document.addEventListener('touchend', (e) => {
     touchEndX = e.changedTouches[0].screenX;
     touchEndY = e.changedTouches[0].screenY;
-    
+
     const diffX = touchEndX - touchStartX;
     const diffY = touchEndY - touchStartY;
-    
-    // Verifica che sia swipe orizzontale (non verticale)
+
     if (Math.abs(diffY) > Math.abs(diffX)) return;
-    
-    // Minimo 50px di swipe
     if (Math.abs(diffX) < 50) return;
-    
-    // Determina dove è avvenuto lo swipe
+
     const isOnCalendarContainer = swipeTarget.closest('.calendar-container');
     const isOnMonthSelector = swipeTarget.closest('.month-selector');
     const isOnSummaryCards = swipeTarget.closest('.summary-cards');
+
     const isOnCalendarTab = document.getElementById('calendario-tab').classList.contains('active');
     const isOnRiepilogoTab = document.getElementById('riepilogo-tab').classList.contains('active');
-    
-    // ==========================================
-    // CALENDARIO TAB
-    // ==========================================
+
     if (isOnCalendarTab) {
         if (isOnCalendarContainer) {
-            // Swipe DENTRO il calendario = cambia mese
             if (diffX > 0) {
-                changeCalendarMonth(-1); // Swipe destra → mese precedente
+                changeCalendarMonth(-1);
             } else {
-                changeCalendarMonth(1);  // Swipe sinistra → mese successivo
+                changeCalendarMonth(1);
             }
         } else {
-            // Swipe FUORI dal calendario = cambia tab
             if (diffX < -100) {
-                switchTab('riepilogo'); // Swipe sinistra → vai a riepilogo
+                switchTab('riepilogo');
             }
         }
     }
-    
-    // ==========================================
-    // RIEPILOGO TAB
-    // ==========================================
     else if (isOnRiepilogoTab) {
         if (isOnMonthSelector) {
-            // Swipe sulla striscia del mese = cambia mese
             if (diffX > 0) {
-                changeSummaryMonth(-1); // Swipe destra → mese precedente
+                changeSummaryMonth(-1);
             } else {
-                changeSummaryMonth(1);  // Swipe sinistra → mese successivo
+                changeSummaryMonth(1);
             }
         } else if (!isOnSummaryCards) {
-            // Swipe fuori dalle cards = cambia tab
             if (diffX > 100) {
-                switchTab('calendario'); // Swipe destra → vai a calendario
+                switchTab('calendario');
             }
         }
     }
