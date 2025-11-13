@@ -13,8 +13,19 @@ let settings = {
     color: 'blue',
     notificationsEnabled: false,
     notificationTime: '21:00',
-    defaultHourlyRate: 8.00,        // ✅ AGGIUNTO
-    showTestButton: false           // ✅ AGGIUNTO
+    defaultHourlyRate: 8.00,
+    showTestButton: false,
+    // ✅ AGGIUNGI
+    startButtons: [
+        { enabled: true, emoji: '❌', text: 'Non ho lavorato', action: 'no-work', time: '' },
+        { enabled: true, emoji: '🕖', text: '19:00', action: 'start-time', time: '19:00' },
+        { enabled: true, emoji: '⏰', text: 'Altro', action: 'start-other', time: '' }
+    ],
+    endButtons: [
+        { enabled: true, emoji: '🕚', text: '23:00', action: 'end-time', time: '23:00' },
+        { enabled: true, emoji: '🕦', text: '23:30', action: 'end-time', time: '23:30' },
+        { enabled: true, emoji: '⏰', text: 'Altro', action: 'end-other', time: '' }
+    ]
 };
 
 // Carica dati al caricamento della pagina
@@ -184,6 +195,20 @@ function setupEventListeners() {
 
     document.getElementById('show-test-notification').addEventListener('change', toggleTestButton);
     document.getElementById('test-notification-btn').addEventListener('click', sendTestNotification);
+
+    // Configurazione pulsanti notifiche
+    document.getElementById('save-buttons-config').addEventListener('click', saveButtonsConfig);
+
+    // Event listeners per mostrare/nascondere campo time
+    for (let i = 1; i <= 3; i++) {
+    // Start buttons
+    document.getElementById(`start-btn-${i}-enabled`).addEventListener('change', () => toggleButtonRow(`start-btn-${i}`));
+    document.getElementById(`start-btn-${i}-action`).addEventListener('change', () => toggleTimeInput(`start-btn-${i}`));
+    
+    // End buttons
+    document.getElementById(`end-btn-${i}-enabled`).addEventListener('change', () => toggleButtonRow(`end-btn-${i}`));
+    document.getElementById(`end-btn-${i}-action`).addEventListener('change', () => toggleTimeInput(`end-btn-${i}`));
+    }
 }
 
 function switchTab(tabName) {
@@ -701,6 +726,7 @@ function checkNotificationPermission() {
     } else {
         checkbox.disabled = true;
     }
+    loadButtonsConfig();
 }
 
 async function toggleNotifications() {
@@ -750,7 +776,8 @@ function scheduleDailyNotification() {
             
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 navigator.serviceWorker.controller.postMessage({
-                    type: 'SHOW_START_NOTIFICATION'
+                   type: 'SHOW_START_NOTIFICATION',
+                   buttons: getStartNotificationButtons()  // ✅ AGGIUNGI
                 });
             }
             
@@ -807,7 +834,8 @@ async function sendTestNotification() {
     
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
-            type: 'SHOW_START_NOTIFICATION'
+            type: 'SHOW_START_NOTIFICATION',
+            buttons: getStartNotificationButtons()  // ✅ AGGIUNGI
         });
         showToast('📱 Notifica di test inviata! Controlla la barra notifiche', 'success');
     } else {
@@ -844,23 +872,23 @@ function handleNotificationAction(action, startTime = null) {
         updateSummary();
         showToast('✓ Giorno di riposo registrato', 'success');
         
-    } else if (action === 'start-other') {
-        showToast('📝 Apri il Calendario per inserire l\'orario manualmente', 'success');
-        document.querySelector('[data-tab="calendario"]').click();
-        
-    } else if (action.startsWith('start-')) {
-        const start = action === 'start-19' ? '19:00' : '19:30';
-        localStorage.setItem('temp_shift_start', start);
+    } else if (action === 'start-time') {
+    // ✅ NUOVO: Gestisci orario custom
+    const button = findStartButtonByAction(action);
+    if (button && button.time) {
+        localStorage.setItem('temp_shift_start', button.time);
         localStorage.setItem('temp_shift_date', notificationDate);
         
-        showToast(`⏰ Inizio turno: ${start}`, 'success');
+        showToast(`⏰ Inizio turno: ${button.time}`, 'success');
         
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
             navigator.serviceWorker.controller.postMessage({
                 type: 'SHOW_END_NOTIFICATION',
-                startTime: start
+                startTime: button.time,
+                buttons: getEndNotificationButtons()  // ✅ AGGIUNGI
             });
         }
+    }
         
     } else if (action === 'end-other') {
         const savedStart = localStorage.getItem('temp_shift_start');
@@ -868,47 +896,164 @@ function handleNotificationAction(action, startTime = null) {
         showToast('📝 Apri il Calendario per completare il turno', 'success');
         document.querySelector('[data-tab="calendario"]').click();
         
-    } else if (action.startsWith('end-')) {
-        const savedStart = localStorage.getItem('temp_shift_start');
-        const savedDate = localStorage.getItem('temp_shift_date');
-        
-        let endTime;
-        if (action === 'end-23') endTime = '23:00';
-        else if (action === 'end-2330') endTime = '23:30';
-        else if (action === 'end-00') endTime = '00:00';
-        
-        const start = new Date(`${savedDate}T${savedStart}`);
-        let end = new Date(`${savedDate}T${endTime}`);
-        
-        if (end < start) {
-            end.setDate(end.getDate() + 1);
-        }
-        
-        const hours = (end - start) / (1000 * 60 * 60);
-        const earnings = hours * settings.defaultHourlyRate;
-        
-        const shift = {
-            id: Date.now(),
-            date: savedDate,
-            startTime: savedStart,
-            endTime: endTime,
-            hours: parseFloat(hours.toFixed(2)),
-            hourlyRate: settings.defaultHourlyRate,
-            earnings: parseFloat(earnings.toFixed(2)),
-            notes: ''
-        };
-        
-        shifts.push(shift);
-        saveShifts();
-        
-        localStorage.removeItem('temp_shift_start');
-        localStorage.removeItem('temp_shift_date');
-        localStorage.removeItem('notification_date');
-        
-        renderCalendar();
-        updateSummary();
-        showToast(`✓ Turno registrato! ${hours.toFixed(1)}h = €${earnings.toFixed(2)}`, 'success');
+    } else if (action === 'end-time') {
+    // ✅ NUOVO: Gestisci orario fine custom
+    const savedStart = localStorage.getItem('temp_shift_start');
+    const savedDate = localStorage.getItem('temp_shift_date');
+    
+    const button = findEndButtonByAction(action);
+    if (!button || !button.time) return;
+    
+    const endTime = button.time;
+    
+    const start = new Date(`${savedDate}T${savedStart}`);
+    let end = new Date(`${savedDate}T${endTime}`);
+    
+    if (end < start) {
+        end.setDate(end.getDate() + 1);
     }
+    
+    const hours = (end - start) / (1000 * 60 * 60);
+    const earnings = hours * settings.defaultHourlyRate;
+    
+    const shift = {
+        id: Date.now(),
+        date: savedDate,
+        startTime: savedStart,
+        endTime: endTime,
+        hours: parseFloat(hours.toFixed(2)),
+        hourlyRate: settings.defaultHourlyRate,
+        earnings: parseFloat(earnings.toFixed(2)),
+        notes: ''
+    };
+    
+    shifts.push(shift);
+    saveShifts();
+    
+    localStorage.removeItem('temp_shift_start');
+    localStorage.removeItem('temp_shift_date');
+    localStorage.removeItem('notification_date');
+    
+    renderCalendar();
+    updateSummary();
+    showToast(`✓ Turno registrato! ${hours.toFixed(1)}h = €${earnings.toFixed(2)}`, 'success');
+}
+}
+
+// Carica configurazione pulsanti nella UI
+function loadButtonsConfig() {
+    // Carica pulsanti START
+    settings.startButtons.forEach((btn, index) => {
+        const i = index + 1;
+        document.getElementById(`start-btn-${i}-enabled`).checked = btn.enabled;
+        document.getElementById(`start-btn-${i}-emoji`).value = btn.emoji;
+        document.getElementById(`start-btn-${i}-text`).value = btn.text;
+        document.getElementById(`start-btn-${i}-action`).value = btn.action;
+        document.getElementById(`start-btn-${i}-time`).value = btn.time || '19:00';
+        
+        toggleButtonRow(`start-btn-${i}`);
+        toggleTimeInput(`start-btn-${i}`);
+    });
+    
+    // Carica pulsanti END
+    settings.endButtons.forEach((btn, index) => {
+        const i = index + 1;
+        document.getElementById(`end-btn-${i}-enabled`).checked = btn.enabled;
+        document.getElementById(`end-btn-${i}-emoji`).value = btn.emoji;
+        document.getElementById(`end-btn-${i}-text`).value = btn.text;
+        document.getElementById(`end-btn-${i}-action`).value = btn.action;
+        document.getElementById(`end-btn-${i}-time`).value = btn.time || '23:00';
+        
+        toggleButtonRow(`end-btn-${i}`);
+        toggleTimeInput(`end-btn-${i}`);
+    });
+}
+
+// Salva configurazione pulsanti
+function saveButtonsConfig() {
+    // Salva pulsanti START
+    settings.startButtons = [];
+    for (let i = 1; i <= 3; i++) {
+        const enabled = document.getElementById(`start-btn-${i}-enabled`).checked;
+        const emoji = document.getElementById(`start-btn-${i}-emoji`).value;
+        const text = document.getElementById(`start-btn-${i}-text`).value;
+        const action = document.getElementById(`start-btn-${i}-action`).value;
+        const time = document.getElementById(`start-btn-${i}-time`).value;
+        
+        settings.startButtons.push({ enabled, emoji, text, action, time });
+    }
+    
+    // Salva pulsanti END
+    settings.endButtons = [];
+    for (let i = 1; i <= 3; i++) {
+        const enabled = document.getElementById(`end-btn-${i}-enabled`).checked;
+        const emoji = document.getElementById(`end-btn-${i}-emoji`).value;
+        const text = document.getElementById(`end-btn-${i}-text`).value;
+        const action = document.getElementById(`end-btn-${i}-action`).value;
+        const time = document.getElementById(`end-btn-${i}-time`).value;
+        
+        settings.endButtons.push({ enabled, emoji, text, action, time });
+    }
+    
+    saveSettings();
+    showToast('✓ Configurazione risposte salvata!', 'success');
+}
+
+// Toggle abilitazione riga
+function toggleButtonRow(buttonId) {
+    const enabled = document.getElementById(`${buttonId}-enabled`).checked;
+    const item = document.getElementById(`${buttonId}-enabled`).closest('.button-config-item');
+    
+    if (enabled) {
+        item.classList.remove('disabled');
+    } else {
+        item.classList.add('disabled');
+    }
+}
+
+// Mostra/nascondi campo time
+function toggleTimeInput(buttonId) {
+    const action = document.getElementById(`${buttonId}-action`).value;
+    const timeInput = document.getElementById(`${buttonId}-time`);
+    
+    if (action.includes('time')) {
+        timeInput.classList.remove('hidden');
+    } else {
+        timeInput.classList.add('hidden');
+    }
+}
+
+// Genera pulsanti per notifica inizio
+function getStartNotificationButtons() {
+    return settings.startButtons
+        .filter(btn => btn.enabled)
+        .slice(0, 3)  // Max 3 pulsanti
+        .map(btn => ({
+            action: btn.action === 'start-time' ? 'start-time' : btn.action,
+            title: `${btn.emoji} ${btn.text}`.trim()
+        }));
+}
+
+// Genera pulsanti per notifica fine
+function getEndNotificationButtons() {
+    return settings.endButtons
+        .filter(btn => btn.enabled)
+        .slice(0, 3)  // Max 3 pulsanti
+        .map(btn => ({
+            action: btn.action === 'end-time' ? 'end-time' : btn.action,
+            title: `${btn.emoji} ${btn.text}`.trim()
+        }));
+}
+
+// Trova pulsante start per action
+function findStartButtonByAction(action) {
+    return settings.startButtons.find(btn => btn.enabled && btn.action === action);
+}
+
+// Trova pulsante end per action
+function findEndButtonByAction(action) {
+    // Cerca il pulsante che ha l'action corrispondente e il time valorizzato
+    return settings.endButtons.find(btn => btn.enabled && btn.action === action);
 }
 
 // ============================
