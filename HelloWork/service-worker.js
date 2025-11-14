@@ -53,73 +53,104 @@ self.addEventListener('fetch', (event) => {
 // ============================
 
 // Ricevi messaggi dall'app
+// ============================ 
+// ✅ GESTIONE NOTIFICHE INTERATTIVE
+// ============================ 
+
+// Ricevi messaggi dall'app
 self.addEventListener('message', (event) => {
-  console.log('[SW] Messaggio ricevuto:', event.data);
-  
-  if (event.data.type === 'SHOW_START_NOTIFICATION') {
-    console.log('[SW] Mostrando notifica inizio turno');
-    showStartNotification();
-  } else if (event.data.type === 'SHOW_END_NOTIFICATION') {
-    console.log('[SW] Mostrando notifica fine turno');
-    showEndNotification(event.data.startTime);
-  }
+    console.log('[SW] Messaggio ricevuto:', event.data);
+    
+    if (event.data.type === 'SHOW_START_NOTIFICATION') {
+        console.log('[SW] Mostrando notifica inizio turno');
+        const notificationDate = event.data.date || new Date().toISOString().split('T')[0];
+        
+        self.registration.showNotification('🍕 Hello Work!', {
+            body: 'Hai lavorato oggi?',
+            icon: './icons/icon-192.png',
+            badge: './icons/icon-192.png',
+            tag: 'shift-notification',
+            requireInteraction: true,
+            actions: [
+                { action: 'rest', title: '😴 Riposo' },
+                { action: 'set-shift', title: '⏰ Imposta' }
+            ],
+            data: { notificationDate: notificationDate }
+        }).then(() => {
+            console.log('[SW] Notifica mostrata');
+        }).catch(err => {
+            console.error('[SW] Errore notifica:', err);
+        });
+    }
 });
-
-// Mostra notifica inizio turno
-function showStartNotification() {
-    console.log('[SW] showStartNotification chiamata');
-    self.registration.showNotification('🍕 Hello Work!', {
-        body: 'Hai lavorato oggi?',
-        icon: './icons/icon-192.png',
-        badge: './icons/icon-192.png',
-        tag: 'shift-start',
-        requireInteraction: true,
-        actions: [
-            { action: 'rest', title: '😴 Riposo' },
-            { action: 'set-shift', title: '⏰ Imposta' }
-        ]
-    }).then(() => {
-        console.log('[SW] Notifica inizio mostrata con successo');
-    }).catch(err => {
-        console.error('[SW] Errore mostrando notifica:', err);
-    });
-}
-
 
 // Gestisci click su notifica
 self.addEventListener('notificationclick', (event) => {
-    console.log('[SW] Notifica cliccata, azione:', event.action);
+    console.log('[SW] Click notifica - Azione:', event.action);
     event.notification.close();
     
-    const action = event.action;
-    const notificationDate = localStorage.getItem('notification_date');
+    const notificationDate = event.notification.data?.notificationDate || new Date().toISOString().split('T')[0];
     
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            console.log('[SW] Client trovati:', clientList.length);
+            
+            // Se app è aperta
             if (clientList.length > 0) {
+                console.log('[SW] Invio messaggio a client esistente');
                 clientList[0].postMessage({ 
                     type: 'NOTIFICATION_ACTION', 
-                    action: action,
+                    action: event.action || 'open',
                     date: notificationDate
                 });
-                clientList[0].focus();
-            } else {
-                // App chiusa - apri e passa i dati via URL
-                const url = action === 'set-shift' 
+                return clientList[0].focus();
+            } 
+            // Se app è chiusa
+            else {
+                console.log('[SW] Apertura nuova finestra');
+                const url = event.action === 'set-shift' 
                     ? `./?quickadd=${notificationDate}` 
                     : './';
-                clients.openWindow(url).then((client) => {
-                    setTimeout(() => {
-                        if (client) {
-                            client.postMessage({ 
-                                type: 'NOTIFICATION_ACTION', 
-                                action: action,
-                                date: notificationDate
-                            });
-                        }
-                    }, 1000);
+                    
+                return clients.openWindow(url).then((client) => {
+                    // Aspetta caricamento app
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            if (client) {
+                                console.log('[SW] Invio messaggio a nuovo client');
+                                client.postMessage({ 
+                                    type: 'NOTIFICATION_ACTION', 
+                                    action: event.action || 'open',
+                                    date: notificationDate
+                                });
+                            }
+                            resolve();
+                        }, 1500);
+                    });
                 });
             }
         })
     );
 });
+
+// Mostra notifica inizio turno
+//function showStartNotification() {
+ //   console.log('[SW] showStartNotification chiamata');
+ //   self.registration.showNotification('🍕 Hello Work!', {
+  //      body: 'Hai lavorato oggi?',
+  //      icon: './icons/icon-192.png',
+   //     badge: './icons/icon-192.png',
+   //     tag: 'shift-start',
+   //     requireInteraction: true,
+   //     actions: [
+  //          { action: 'rest', title: '😴 Riposo' },
+   //         { action: 'set-shift', title: '⏰ Imposta' }
+   //     ]
+   // }).then(() => {
+   //     console.log('[SW] Notifica inizio mostrata con successo');
+  //  }).catch(err => {
+  //      console.error('[SW] Errore mostrando notifica:', err);
+ //   });
+//}
+
+
