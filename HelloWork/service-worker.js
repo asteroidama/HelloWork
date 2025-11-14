@@ -69,7 +69,7 @@ self.addEventListener('message', (event) => {
 function showStartNotification() {
     console.log('[SW] showStartNotification chiamata');
     self.registration.showNotification('🍕 Hello Work!', {
-        body: 'Hai lavorato oggi?',
+        body: 'A che ora hai attaccato?',
         icon: './icons/icon-192.png',
         badge: './icons/icon-192.png',
         tag: 'shift-start',
@@ -85,44 +85,86 @@ function showStartNotification() {
     });
 }
 
+function showSetStartTimeNotification() {
+    self.registration.showNotification('⏰ Inizio Turno', {
+        body: 'Seleziona orario di inizio:',
+        icon: './icons/icon-192.png',
+        tag: 'set-start',
+        requireInteraction: true,
+        actions: [
+            { action: 'start-19', title: '19:00' },
+            { action: 'start-1930', title: '19:30' },
+            { action: 'start-20', title: '20:00' },
+            { action: 'start-other', title: 'Altro...' }
+        ]
+    });
+}
+
+function showSetEndTimeNotification(startTime) {
+    self.registration.showNotification('⏰ Fine Turno', {
+        body: `Inizio: ${startTime} - Seleziona fine:`,
+        icon: './icons/icon-192.png',
+        tag: 'set-end',
+        requireInteraction: true,
+        actions: [
+            { action: 'end-23', title: '23:00' },
+            { action: 'end-2330', title: '23:30' },
+            { action: 'end-00', title: '00:00' },
+            { action: 'end-other', title: 'Altro...' }
+        ],
+        data: { startTime: startTime }
+    });
+}
 
 // Gestisci click su notifica
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notifica cliccata, azione:', event.action);
-  
-  event.notification.close();
-  
-  const action = event.action;
-  
-  // Invia azione all'app
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      console.log('[SW] Client trovati:', clientList.length);
-      
-      // Se app è aperta, invia messaggio
-      if (clientList.length > 0) {
-        console.log('[SW] Invio messaggio al client esistente');
-        clientList[0].postMessage({
-          type: 'NOTIFICATION_ACTION',
-          action: action
-        });
-        clientList[0].focus();
-      } else {
-        // Se app è chiusa, apri e invia messaggio
-        console.log('[SW] Apertura nuova finestra');
-        clients.openWindow('./').then((client) => {
-          // Aspetta che l'app si carichi
-          setTimeout(() => {
-            if (client) {
-              console.log('[SW] Invio messaggio al nuovo client');
-              client.postMessage({
-                type: 'NOTIFICATION_ACTION',
-                action: action
-              });
-            }
-          }, 1000);
-        });
-      }
-    })
-  );
+    console.log('[SW] Notifica cliccata, azione:', event.action);
+    event.notification.close();
+    
+    const action = event.action;
+    
+    if (action === 'rest') {
+        sendActionToApp('rest');
+    } else if (action === 'set-shift') {
+        showSetStartTimeNotification();
+    } else if (action.startsWith('start-')) {
+        if (action === 'start-other') {
+            openAppWithPicker();
+        } else {
+            const time = action === 'start-19' ? '19:00' : action === 'start-1930' ? '19:30' : '20:00';
+            localStorage.setItem('temp_start', time);
+            showSetEndTimeNotification(time);
+        }
+    } else if (action.startsWith('end-')) {
+        if (action === 'end-other') {
+            openAppWithPicker();
+        } else {
+            const startTime = localStorage.getItem('temp_start');
+            const endTime = action === 'end-23' ? '23:00' : action === 'end-2330' ? '23:30' : '00:00';
+            sendActionToApp('save-shift', { start: startTime, end: endTime });
+            localStorage.removeItem('temp_start');
+        }
+    }
 });
+
+function sendActionToApp(actionType, data = null) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        if (clientList.length > 0) {
+            clientList[0].postMessage({ type: 'NOTIFICATION_ACTION', action: actionType, data: data });
+            clientList[0].focus();
+        } else {
+            clients.openWindow('./').then((client) => {
+                setTimeout(() => {
+                    if (client) {
+                        client.postMessage({ type: 'NOTIFICATION_ACTION', action: actionType, data: data });
+                    }
+                }, 1000);
+            });
+        }
+    });
+}
+
+function openAppWithPicker() {
+    const notificationDate = localStorage.getItem('notification_date');
+    clients.openWindow('./?action=quick-add&date=' + notificationDate);
+}
