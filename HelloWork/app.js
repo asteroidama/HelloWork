@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setDefaultDate();
     checkNotificationPermission();
     checkInstallStatus();
+    checkQuickAddFromNotification();
 });
 
 // ============================
@@ -821,13 +822,13 @@ async function sendTestNotification() {
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data.type === 'NOTIFICATION_ACTION') {
-            handleNotificationAction(event.data.action, event.data.startTime);
+            handleNotificationAction(event.data.action, { date: event.data.date });
         }
     });
 }
 
 function handleNotificationAction(action, data = null) {
-    const notificationDate = localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
+    const notificationDate = data?.date || localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
     
     if (action === 'rest') {
         const restShift = {
@@ -849,34 +850,25 @@ function handleNotificationAction(action, data = null) {
         showToast('✓ Riposo registrato', 'success');
         localStorage.removeItem('notification_date');
         
-    } else if (action === 'save-shift' && data) {
-        const start = new Date(`${notificationDate}T${data.start}`);
-        let end = new Date(`${notificationDate}T${data.end}`);
-        
-        if (end < start) {
-            end.setDate(end.getDate() + 1);
-        }
-        
-        const hours = (end - start) / (1000 * 60 * 60);
-        const earnings = hours * settings.defaultHourlyRate;
-        
-        const shift = {
-            id: Date.now(),
-            date: notificationDate,
-            startTime: data.start,
-            endTime: data.end,
-            hours: hours.toFixed(2),
-            hourlyRate: settings.defaultHourlyRate,
-            earnings: earnings.toFixed(2),
-            notes: ''
-        };
-        
-        shifts.push(shift);
-        saveShifts();
-        renderCalendar();
-        updateSummary();
-        showToast(`✓ Turno registrato! ${formatHours(hours)} = €${earnings.toFixed(2)}`, 'success');
+    } else if (action === 'set-shift') {
+        // App già aperta - mostra lancette
+        showQuickAddShift(notificationDate);
         localStorage.removeItem('notification_date');
+    }
+}
+
+function checkQuickAddFromNotification() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quickAddDate = urlParams.get('quickadd');
+    
+    if (quickAddDate) {
+        // Rimuovi parametro dall'URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Aspetta che tutto sia caricato, poi apri lancette
+        setTimeout(() => {
+            showQuickAddShift(quickAddDate);
+        }, 500);
     }
 }
 
