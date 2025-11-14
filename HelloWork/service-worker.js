@@ -67,49 +67,24 @@ self.addEventListener('message', (event) => {
 
 // Mostra notifica inizio turno
 function showStartNotification() {
-  console.log('[SW] showStartNotification chiamata');
-  
-  self.registration.showNotification('🍕 Hello Work!', {
-    body: 'A che ora hai attaccato oggi?',
-    icon: './icons/icon-192.png',
-    badge: './icons/icon-192.png',
-    tag: 'shift-start',
-    requireInteraction: true,
-    actions: [
-      { action: 'no-work', title: '❌ Non ho lavorato' },
-      { action: 'start-19', title: '🕖 19:00' },
-      { action: 'start-1930', title: '🕢 19:30' },
-      { action: 'start-other', title: '⏰ Altro orario' }
-    ]
-  }).then(() => {
-    console.log('[SW] Notifica inizio mostrata con successo');
-  }).catch(err => {
-    console.error('[SW] Errore mostrando notifica:', err);
-  });
+    console.log('[SW] showStartNotification chiamata');
+    self.registration.showNotification('🍕 Hello Work!', {
+        body: 'Hai lavorato oggi?',
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-192.png',
+        tag: 'shift-start',
+        requireInteraction: true,
+        actions: [
+            { action: 'rest', title: '😴 Riposo' },
+            { action: 'set-shift', title: '⏰ Imposta' }
+        ]
+    }).then(() => {
+        console.log('[SW] Notifica inizio mostrata con successo');
+    }).catch(err => {
+        console.error('[SW] Errore mostrando notifica:', err);
+    });
 }
 
-// Mostra notifica fine turno
-function showEndNotification(startTime) {
-  console.log('[SW] showEndNotification chiamata con startTime:', startTime);
-  
-  self.registration.showNotification('🍕 Hello Work!', {
-    body: `A che ora hai staccato? (Inizio: ${startTime})`,
-    icon: './icons/icon-192.png',
-    badge: './icons/icon-192.png',
-    tag: 'shift-end',
-    requireInteraction: true,
-    actions: [
-      { action: 'end-23', title: '🕚 23:00' },
-      { action: 'end-2330', title: '🕦 23:30' },
-      { action: 'end-00', title: '🕛 00:00' },
-      { action: 'end-other', title: '⏰ Altro orario' }
-    ]
-  }).then(() => {
-    console.log('[SW] Notifica fine mostrata con successo');
-  }).catch(err => {
-    console.error('[SW] Errore mostrando notifica fine:', err);
-  });
-}
 
 // Gestisci click su notifica
 self.addEventListener('notificationclick', (event) => {
