@@ -289,7 +289,7 @@ function createDayElement(day, month, year, isOtherMonth, isToday = false) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const shift = shifts.find(s => s.date === dateStr);
 
-    if (shift) {
+    if (shift && !shift.isRest) {  // ← AGGIUNGI && !shift.isRest
         div.classList.add('has-shift');
         div.innerHTML = `
             <span class="day-number">${day}</span>
@@ -299,8 +299,8 @@ function createDayElement(day, month, year, isOtherMonth, isToday = false) {
             </div>
         `;
     } else {
-        div.innerHTML = `<span class="day-number">${day}</span>`;
-    }
+    div.innerHTML = `<span class="day-number">${day}</span>`;
+}
 
     div.addEventListener('click', () => openDayModal(dateStr, shift));
 
@@ -318,6 +318,8 @@ function openDayModal(dateStr, shift) {
     title.textContent = `Turno ${formattedDate}`;
 
     if (shift) {
+        const displayStart = shift.isRest ? '/' : shift.startTime;
+        const displayEnd = shift.isRest ? '/' : shift.endTime;
         body.innerHTML = `
             <div class="shift-detail-item" style="cursor: pointer;" onclick="editShiftTime(${shift.id}, '${dateStr}')">
                 <div class="shift-detail-icon">🕐</div>
@@ -827,88 +829,36 @@ if ('serviceWorker' in navigator) {
 function handleNotificationAction(action, startTime = null) {
     const notificationDate = localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
     
-    if (action === 'no-work') {
-        const nullShift = {
+    if (action === 'rest') {
+        // Turno di riposo (invisibile)
+        const restShift = {
             id: Date.now(),
             date: notificationDate,
-            startTime: '00:00',
-            endTime: '00:00',
-            hours: 0,
+            startTime: '/',
+            endTime: '/',
+            hours: '0',
             hourlyRate: settings.defaultHourlyRate,
-            earnings: 0,
-            notes: 'Riposo'
+            earnings: '0.00',
+            notes: '',
+            isRest: true  // Flag per identificarlo
         };
-        shifts.push(nullShift);
+        
+        shifts.push(restShift);
         saveShifts();
         renderCalendar();
         updateSummary();
         showToast('✓ Giorno di riposo registrato', 'success');
         
-    } else if (action === 'start-other') {
-        showToast('📝 Apri il Calendario per inserire l\'orario manualmente', 'success');
+    } else if (action === 'set-shift') {
+        // Apri app e mostra lancette
         document.querySelector('[data-tab="calendario"]').click();
-        
-    } else if (action.startsWith('start-')) {
-        const start = action === 'start-19' ? '19:00' : '19:30';
-        localStorage.setItem('temp_shift_start', start);
-        localStorage.setItem('temp_shift_date', notificationDate);
-        
-        showToast(`⏰ Inizio turno: ${start}`, 'success');
-        
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({
-                type: 'SHOW_END_NOTIFICATION',
-                startTime: start
-            });
-        }
-        
-    } else if (action === 'end-other') {
-        const savedStart = localStorage.getItem('temp_shift_start');
-        const savedDate = localStorage.getItem('temp_shift_date');
-        showToast('📝 Apri il Calendario per completare il turno', 'success');
-        document.querySelector('[data-tab="calendario"]').click();
-        
-    } else if (action.startsWith('end-')) {
-        const savedStart = localStorage.getItem('temp_shift_start');
-        const savedDate = localStorage.getItem('temp_shift_date');
-        
-        let endTime;
-        if (action === 'end-23') endTime = '23:00';
-        else if (action === 'end-2330') endTime = '23:30';
-        else if (action === 'end-00') endTime = '00:00';
-        
-        const start = new Date(`${savedDate}T${savedStart}`);
-        let end = new Date(`${savedDate}T${endTime}`);
-        
-        if (end < start) {
-            end.setDate(end.getDate() + 1);
-        }
-        
-        const hours = (end - start) / (1000 * 60 * 60);
-        const earnings = hours * settings.defaultHourlyRate;
-        
-        const shift = {
-            id: Date.now(),
-            date: savedDate,
-            startTime: savedStart,
-            endTime: endTime,
-            hours: parseFloat(hours.toFixed(2)),
-            hourlyRate: settings.defaultHourlyRate,
-            earnings: parseFloat(earnings.toFixed(2)),
-            notes: ''
-        };
-        
-        shifts.push(shift);
-        saveShifts();
-        
-        localStorage.removeItem('temp_shift_start');
-        localStorage.removeItem('temp_shift_date');
-        localStorage.removeItem('notification_date');
-        
-        renderCalendar();
-        updateSummary();
-        showToast(`✓ Turno registrato! ${hours.toFixed(1)}h = €${earnings.toFixed(2)}`, 'success');
+        setTimeout(() => {
+            showQuickAddShift(notificationDate);
+        }, 300);
+        showToast('⏰ Inserisci gli orari del turno', 'success');
     }
+    
+    localStorage.removeItem('notification_date');
 }
 
 // ============================
