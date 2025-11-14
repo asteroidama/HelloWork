@@ -749,14 +749,16 @@ function scheduleDailyNotification() {
         const delay = notificationTime - now;
         
         setTimeout(() => {
-            localStorage.setItem('notification_date', new Date().toISOString().split('T')[0]);
-            
+            const notificationDate = new Date().toISOString().split('T')[0];
+            localStorage.setItem('notification_date', notificationDate);
+    
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'SHOW_START_NOTIFICATION'
+                navigator.serviceWorker.controller.postMessage({ 
+                    type: 'SHOW_START_NOTIFICATION',
+                    date: notificationDate  // ✅ AGGIUNGI QUESTO
                 });
             }
-            
+    
             scheduleDailyNotification();
         }, delay);
     };
@@ -794,41 +796,49 @@ function updateTestButtonVisibility() {
 
 async function sendTestNotification() {
     if (!settings.notificationsEnabled) {
-        showToast('⚠️ Abilita prima le notifiche nelle impostazioni!', 'error');
+        showToast('⚠️ Abilita prima le notifiche!', 'error');
         return;
     }
     
     if (Notification.permission !== 'granted') {
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-            showToast('Permesso notifiche negato', 'error');
+            showToast('Permesso negato', 'error');
             return;
         }
     }
     
-    localStorage.setItem('notification_date', new Date().toISOString().split('T')[0]);
+    const notificationDate = new Date().toISOString().split('T')[0];
+    localStorage.setItem('notification_date', notificationDate);
     
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-            type: 'SHOW_START_NOTIFICATION'
+        navigator.serviceWorker.controller.postMessage({ 
+            type: 'SHOW_START_NOTIFICATION',
+            date: notificationDate  // ✅ AGGIUNGI QUESTO
         });
-        showToast('📱 Notifica di test inviata! Controlla la barra notifiche', 'success');
+        showToast('📱 Notifica test inviata!', 'success');
     } else {
-        showToast('⚠️ Service Worker non pronto, ricarica la pagina', 'error');
+        showToast('⚠️ Service Worker non pronto', 'error');
     }
 }
 
 // Gestisci risposta da Service Worker
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('[APP] Messaggio da SW:', event.data);
+        
         if (event.data.type === 'NOTIFICATION_ACTION') {
-            handleNotificationAction(event.data.action, { date: event.data.date });
+            handleNotificationAction(event.data.action, event.data.date);
         }
     });
 }
 
-function handleNotificationAction(action, data = null) {
-    const notificationDate = data?.date || localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
+function handleNotificationAction(action, notificationDate) {
+    console.log('[APP] Gestisco azione:', action, notificationDate);
+    
+    if (!notificationDate) {
+        notificationDate = localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
+    }
     
     if (action === 'rest') {
         const restShift = {
@@ -848,13 +858,16 @@ function handleNotificationAction(action, data = null) {
         renderCalendar();
         updateSummary();
         showToast('✓ Riposo registrato', 'success');
-        localStorage.removeItem('notification_date');
         
-    } else if (action === 'set-shift') {
-        // App già aperta - mostra lancette
-        showQuickAddShift(notificationDate);
-        localStorage.removeItem('notification_date');
+    } else if (action === 'set-shift' || action === 'open') {
+        // Vai al calendario e apri lancette
+        switchTab('calendario');
+        setTimeout(() => {
+            showQuickAddShift(notificationDate);
+        }, 300);
     }
+    
+    localStorage.removeItem('notification_date');
 }
 
 function checkQuickAddFromNotification() {
