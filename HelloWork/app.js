@@ -826,11 +826,10 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-function handleNotificationAction(action, startTime = null) {
+function handleNotificationAction(action, data = null) {
     const notificationDate = localStorage.getItem('notification_date') || new Date().toISOString().split('T')[0];
     
     if (action === 'rest') {
-        // Turno di riposo (invisibile)
         const restShift = {
             id: Date.now(),
             date: notificationDate,
@@ -840,25 +839,45 @@ function handleNotificationAction(action, startTime = null) {
             hourlyRate: settings.defaultHourlyRate,
             earnings: '0.00',
             notes: '',
-            isRest: true  // Flag per identificarlo
+            isRest: true
         };
         
         shifts.push(restShift);
         saveShifts();
         renderCalendar();
         updateSummary();
-        showToast('✓ Giorno di riposo registrato', 'success');
+        showToast('✓ Riposo registrato', 'success');
+        localStorage.removeItem('notification_date');
         
-    } else if (action === 'set-shift') {
-        // Apri app e mostra lancette
-        document.querySelector('[data-tab="calendario"]').click();
-        setTimeout(() => {
-            showQuickAddShift(notificationDate);
-        }, 300);
-        showToast('⏰ Inserisci gli orari del turno', 'success');
+    } else if (action === 'save-shift' && data) {
+        const start = new Date(`${notificationDate}T${data.start}`);
+        let end = new Date(`${notificationDate}T${data.end}`);
+        
+        if (end < start) {
+            end.setDate(end.getDate() + 1);
+        }
+        
+        const hours = (end - start) / (1000 * 60 * 60);
+        const earnings = hours * settings.defaultHourlyRate;
+        
+        const shift = {
+            id: Date.now(),
+            date: notificationDate,
+            startTime: data.start,
+            endTime: data.end,
+            hours: hours.toFixed(2),
+            hourlyRate: settings.defaultHourlyRate,
+            earnings: earnings.toFixed(2),
+            notes: ''
+        };
+        
+        shifts.push(shift);
+        saveShifts();
+        renderCalendar();
+        updateSummary();
+        showToast(`✓ Turno registrato! ${formatHours(hours)} = €${earnings.toFixed(2)}`, 'success');
+        localStorage.removeItem('notification_date');
     }
-    
-    localStorage.removeItem('notification_date');
 }
 
 // ============================
