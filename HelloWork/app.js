@@ -211,11 +211,19 @@ function switchTab(tabName) {
 function openSettings() {
     document.getElementById('settings-page').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    
+    // ✅ AGGIUNGI: Push state per gestire back button
+    history.pushState({ page: 'settings' }, '', '');
 }
 
 function closeSettings() {
     document.getElementById('settings-page').classList.add('hidden');
     document.body.style.overflow = '';
+    
+    // ✅ AGGIUNGI: Rimuovi state solo se siamo in settings
+    if (history.state?.page === 'settings') {
+        history.back();
+    }
 }
 
 // ============================
