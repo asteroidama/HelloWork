@@ -1054,3 +1054,10 @@ document.addEventListener('touchend', (e) => {
         }
     }
 });
+
+// Gestione back button
+window.addEventListener('popstate', (e) => {
+    if (!document.getElementById('settings-page').classList.contains('hidden')) {
+        closeSettings();
+    }
+});
