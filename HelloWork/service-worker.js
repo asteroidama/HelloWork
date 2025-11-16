@@ -125,43 +125,35 @@ self.addEventListener('notificationclick', (event) => {
         return; // ← IMPORTANTE: esci qui, NON aprire app
     }
     
-    // ✅ Per "Imposta" o click sulla notifica - APRI APP
+    // ✅ Per "Imposta" o click notifica - FORZA APERTURA APP
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then((clientList) => {
-            console.log('[SW] Client trovati:', clientList.length);
-            
-            // Se app è aperta
+        // Prima salva l'azione
+        caches.open('temp-actions').then(cache => {
+            return cache.put(
+                new Request('/pending-action'),
+                new Response(JSON.stringify({
+                    action: action,
+                    date: notificationDate,
+                    timestamp: Date.now()
+                }))
+            );
+        }).then(() => {
+            // Poi cerca client esistenti
+            return clients.matchAll({ type: 'window', includeUncontrolled: true });
+        }).then((clientList) => {
             if (clientList.length > 0) {
+                // App già aperta - focus e invia messaggio
                 const client = clientList[0];
-                console.log('[SW] Invio messaggio a client esistente');
-                
                 client.postMessage({ 
                     type: 'NOTIFICATION_ACTION', 
                     action: action,
                     date: notificationDate
                 });
-                
                 return client.focus();
-            } 
-            // Se app è chiusa
-            else {
-                console.log('[SW] Apertura app');
-                
-                // ✅ SALVA azione pendente prima di aprire
-                return caches.open('temp-actions').then(cache => {
-                    return cache.put(
-                        new Request('/pending-action'),
-                        new Response(JSON.stringify({
-                            action: action,
-                            date: notificationDate,
-                            timestamp: Date.now()
-                        }))
-                    ).then(() => {
-                        // ✅ APRI APP dopo aver salvato
-                        return clients.openWindow('./');
-                    });
-                });
+            } else {
+                // ✅ APRI APP (funziona sempre perché siamo nel context della notifica)
+                console.log('[SW] Apertura forzata app');
+                return clients.openWindow('./');
             }
         })
     );
