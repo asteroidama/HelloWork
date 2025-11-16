@@ -544,6 +544,24 @@ function editShiftTime(shiftId, dateStr) {
             showToast('✓ Turno aggiornato', 'success');
         }
     });
+
+// Elimina turno
+    document.getElementById('delete-shift-btn').addEventListener('click', () => {
+        if (confirm('Sei sicuro di voler eliminare questo turno?')) {
+            shifts = shifts.filter(s => s.id !== shiftId);
+            saveShifts();
+            renderCalendar();
+            updateSummary();
+            closeModal();
+            showToast('🗑️ Turno eliminato', 'success');
+        }
+    });
+    
+    // Sposta turno
+    document.getElementById('move-shift-btn').addEventListener('click', () => {
+        showMoveShiftModal(shiftId);
+    });
+
 }
 
 function closeModal() {
@@ -696,24 +714,6 @@ function showQuickAddShift(dateStr) {
             showToast('✓ Turno aggiunto', 'success');
         }
     });
-
-// Elimina turno
-    document.getElementById('delete-shift-btn').addEventListener('click', () => {
-        if (confirm('Sei sicuro di voler eliminare questo turno?')) {
-            shifts = shifts.filter(s => s.id !== shiftId);
-            saveShifts();
-            renderCalendar();
-            updateSummary();
-            closeModal();
-            showToast('🗑️ Turno eliminato', 'success');
-        }
-    });
-    
-    // Sposta turno
-    document.getElementById('move-shift-btn').addEventListener('click', () => {
-        showMoveShiftModal(shiftId);
-    });
-}
 }
 
 function showMoveShiftModal(shiftId) {
@@ -1306,12 +1306,5 @@ document.addEventListener('touchend', (e) => {
                 switchTab('calendario');
             }
         }
-    }
-});
-
-// Gestione back button
-window.addEventListener('popstate', (e) => {
-    if (!document.getElementById('settings-page').classList.contains('hidden')) {
-        closeSettings();
     }
 });
