@@ -703,6 +703,37 @@ body.dark-mode .app-header {
     transform: translateY(0);
 }
 
+.icon-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border: 2px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.icon-action-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: scale(1.1);
+}
+
+.icon-action-btn.danger {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.icon-action-btn.danger:hover {
+    background: var(--danger);
+    color: white;
+}
+
 /* ==========================================
    SETTINGS PAGE
    ========================================== */
