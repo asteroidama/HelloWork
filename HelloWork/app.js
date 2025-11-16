@@ -491,149 +491,141 @@ function showQuickAddShift(dateStr) {
     const modal = document.getElementById('shift-modal');
     const title = document.getElementById('modal-title');
     const body = document.getElementById('modal-body');
-
+    
     const formattedDate = formatDate(dateStr);
-
     title.textContent = `Aggiungi Turno - ${formattedDate}`;
-
+    
     const defaultStart = '19:00';
     const now = new Date();
     const minutes = now.getMinutes();
     const roundedMinutes = minutes <= 15 ? '00' : minutes <= 45 ? '30' : '00';
     const roundedHour = minutes > 45 ? (now.getHours() + 1) % 24 : now.getHours();
     const defaultEnd = `${String(roundedHour).padStart(2, '0')}:${roundedMinutes}`;
-
+    
     body.innerHTML = `
-        <div style="padding: var(--space-lg); text-align: center;">
-            <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Ora Inizio Turno</h3>
-            <input type="time" id="quick-start" value="${defaultStart}"
-                style="font-size: 2rem; padding: var(--space-lg); width: 100%;
-                border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                background: var(--bg-primary); color: var(--text-primary);">
-            <button id="confirm-start" class="btn-primary" style="margin-top: var(--space-lg);">
-                Imposta Inizio
+        <div style="padding: var(--space-md);">
+            <!-- ✅ CHECKBOX IN ALTO -->
+            <div style="margin-bottom: var(--space-lg); padding: var(--space-md); background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input type="checkbox" id="quick-no-work" style="width: 20px; height: 20px; cursor: pointer;">
+                    <span style="font-weight: 500;">😴 Non ho lavorato (riposo)</span>
+                </label>
+            </div>
+            
+            <!-- ✅ SEZIONE LANCETTE (nascosta se checkbox attiva) -->
+            <div id="time-inputs-section">
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <h3 style="margin-bottom: var(--space-md); color: var(--text-secondary);">Ora Inizio Turno</h3>
+                    <input type="time" id="quick-start" value="${defaultStart}" 
+                        style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                        border: 2px solid var(--border-color); border-radius: var(--radius-md); 
+                        background: var(--bg-primary); color: var(--text-primary);">
+                </div>
+                
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <h3 style="margin-bottom: var(--space-md); color: var(--text-secondary);">Ora Fine Turno</h3>
+                    <input type="time" id="quick-end" value="${defaultEnd}" 
+                        style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                        border: 2px solid var(--border-color); border-radius: var(--radius-md); 
+                        background: var(--bg-primary); color: var(--text-primary);">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Paga Oraria (€)</label>
+                    <input type="number" id="quick-hourly" class="form-input" step="0.01" value="${settings.defaultHourlyRate}" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Note (opzionali)</label>
+                <textarea id="quick-notes" class="form-textarea" rows="2"></textarea>
+            </div>
+            
+            <button id="save-shift-btn" class="btn-primary" style="width: 100%; margin-top: var(--space-md);">
+                Salva Turno
             </button>
         </div>
     `;
-
+    
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    setTimeout(() => document.getElementById('quick-start').focus(), 100);
-
-    document.getElementById('confirm-start').addEventListener('click', () => {
-        const startTime = document.getElementById('quick-start').value;
-
-        body.innerHTML = `
-            <div style="padding: var(--space-lg); text-align: center;">
-                <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Ora Fine Turno</h3>
-                <input type="time" id="quick-end" value="${defaultEnd}"
-                    style="font-size: 2rem; padding: var(--space-lg); width: 100%;
-                    border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                    background: var(--bg-primary); color: var(--text-primary);">
-                <button id="confirm-end" class="btn-primary" style="margin-top: var(--space-lg);">
-                    Imposta Fine
-                </button>
-            </div>
-        `;
-
-        setTimeout(() => document.getElementById('quick-end').focus(), 100);
-
-        document.getElementById('confirm-end').addEventListener('click', () => {
-            const endTime = document.getElementById('quick-end').value;
-
-            body.innerHTML = `
-                <form id="quick-shift-form" style="display: flex; flex-direction: column; gap: var(--space-md);">
-                    <div class="form-group">
-                        <label class="form-label">Ora Inizio</label>
-                        <input type="time" id="final-start" class="form-input" value="${startTime}" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Ora Fine</label>
-                        <input type="time" id="final-end" class="form-input" value="${endTime}" required>
-                    </div>
-                    <div class="form-group">
-    <label class="form-label">Paga Oraria (€)</label>
-    <input type="number" id="quick-hourly" class="form-input" step="0.01" value="${settings.defaultHourlyRate}" required>
-</div>
-<div class="form-group">
-    <label class="form-label">Note (opzionali)</label>
-    <textarea id="quick-notes" class="form-textarea" rows="2"></textarea>
-</div>
-<div class="form-group">
-    <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
-        <input type="checkbox" id="no-work-checkbox" style="width: 20px; height: 20px; cursor: pointer;">
-        <span class="form-label" style="margin: 0;">Non ho lavorato (riposo)</span>
-    </label>
-</div>
-<button type="submit" class="btn-primary">Conferma e Salva Turno</button>
-                </form>
-            `;
-
-            document.getElementById('quick-shift-form').addEventListener('submit', (e) => {
-    e.preventDefault();
     
-    const isRest = document.getElementById('no-work-checkbox').checked;
+    // ✅ Gestione checkbox - nascondi/mostra lancette
+    const checkbox = document.getElementById('quick-no-work');
+    const timeSection = document.getElementById('time-inputs-section');
     
-    // ✅ Se checkbox attiva = turno riposo
-    if (isRest) {
-        const restShift = {
-            id: Date.now(),
-            date: dateStr,
-            startTime: '/',
-            endTime: '/',
-            hours: '0',
-            hourlyRate: settings.defaultHourlyRate,
-            earnings: '0.00',
-            notes: document.getElementById('quick-notes').value,
-            isRest: true
-        };
+    checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+            timeSection.style.display = 'none';
+        } else {
+            timeSection.style.display = 'block';
+        }
+    });
+    
+    // ✅ Salva turno
+    document.getElementById('save-shift-btn').addEventListener('click', () => {
+        const isRest = checkbox.checked;
+        const notes = document.getElementById('quick-notes').value;
         
-        shifts.push(restShift);
-        saveShifts();
-        renderCalendar();
-        updateSummary();
-        closeModal();
-        showToast('✓ Riposo registrato', 'success');
-        return;
-    }
-    
-    // ✅ Altrimenti turno normale
-    const finalStart = document.getElementById('final-start').value;
-    const finalEnd = document.getElementById('final-end').value;
-    const hourlyRate = parseFloat(document.getElementById('quick-hourly').value);
-    const notes = document.getElementById('quick-notes').value;
-
-                const start = new Date(`${dateStr}T${finalStart}`);
-                const end = new Date(`${dateStr}T${finalEnd}`);
-
-                if (end < start) {
-                    end.setDate(end.getDate() + 1);
-                }
-
-                const hours = (end - start) / (1000 * 60 * 60);
-                const earnings = hours * hourlyRate;
-
-                const shift = {
-                    id: Date.now(),
-                    date: dateStr,
-                    startTime: finalStart,
-                    endTime: finalEnd,
-                    hours: hours.toFixed(2),
-                    hourlyRate,
-                    earnings: earnings.toFixed(2),
-                    notes
-                };
-
-                shifts.push(shift);
-                saveShifts();
-                renderCalendar();
-                updateSummary();
-                closeModal();
-
-                showToast('Turno aggiunto! ✓', 'success');
-                scheduleNotification(shift);
-            });
-        });
+        if (isRest) {
+            // Turno riposo
+            const restShift = {
+                id: Date.now(),
+                date: dateStr,
+                startTime: '/',
+                endTime: '/',
+                hours: '0',
+                hourlyRate: settings.defaultHourlyRate,
+                earnings: '0.00',
+                notes: notes,
+                isRest: true
+            };
+            
+            shifts.push(restShift);
+            saveShifts();
+            renderCalendar();
+            updateSummary();
+            closeModal();
+            showToast('✓ Riposo registrato', 'success');
+        } else {
+            // Turno normale
+            const startTime = document.getElementById('quick-start').value;
+            const endTime = document.getElementById('quick-end').value;
+            const hourlyRate = parseFloat(document.getElementById('quick-hourly').value);
+            
+            if (!startTime || !endTime) {
+                showToast('⚠️ Inserisci gli orari', 'error');
+                return;
+            }
+            
+            const start = new Date(`${dateStr}T${startTime}`);
+            const end = new Date(`${dateStr}T${endTime}`);
+            
+            if (end < start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            const hours = (end - start) / (1000 * 60 * 60);
+            const earnings = hours * hourlyRate;
+            
+            const shift = {
+                id: Date.now(),
+                date: dateStr,
+                startTime: startTime,
+                endTime: endTime,
+                hours: hours.toFixed(2),
+                hourlyRate: hourlyRate,
+                earnings: earnings.toFixed(2),
+                notes: notes
+            };
+            
+            shifts.push(shift);
+            saveShifts();
+            renderCalendar();
+            updateSummary();
+            closeModal();
+            showToast('✓ Turno aggiunto', 'success');
+        }
     });
 }
 
