@@ -90,6 +90,24 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     
     const notificationDate = event.notification.data?.notificationDate || new Date().toISOString().split('T')[0];
+    const action = event.action || 'open';
+    
+    // ✅ SALVA AZIONE IN LOCALSTORAGE per quando app si apre
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+        if (clients.length === 0) {
+            // App chiusa - salva per dopo
+            caches.open('temp-actions').then(cache => {
+                cache.put(
+                    new Request('/pending-action'),
+                    new Response(JSON.stringify({
+                        action: action,
+                        date: notificationDate,
+                        timestamp: Date.now()
+                    }))
+                );
+            });
+        }
+    });
     
     event.waitUntil(
         clients.matchAll({ 
@@ -101,26 +119,20 @@ self.addEventListener('notificationclick', (event) => {
             // Se app è aperta
             if (clientList.length > 0) {
                 const client = clientList[0];
-                console.log('[SW] Focus su client esistente');
+                console.log('[SW] Invio messaggio a client esistente');
                 
-                // Invia messaggio
                 client.postMessage({ 
                     type: 'NOTIFICATION_ACTION', 
-                    action: event.action || 'open',
+                    action: action,
                     date: notificationDate
                 });
                 
-                // Focus sulla finestra
                 return client.focus();
             } 
-            // Se app è chiusa
+            // Se app è chiusa - apri
             else {
                 console.log('[SW] Apertura nuova finestra');
-                const url = event.action === 'set-shift' 
-                    ? `./?quickadd=${notificationDate}` 
-                    : './';
-                    
-                return clients.openWindow(url);
+                return clients.openWindow('./');
             }
         })
     );
