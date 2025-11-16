@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkNotificationPermission();
     checkInstallStatus();
     checkQuickAddFromNotification();
+loadAppIcon();
 });
 
 // ============================
