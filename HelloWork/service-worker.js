@@ -92,18 +92,26 @@ self.addEventListener('notificationclick', (event) => {
     const notificationDate = event.notification.data?.notificationDate || new Date().toISOString().split('T')[0];
     
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        clients.matchAll({ 
+            type: 'window', 
+            includeUncontrolled: true 
+        }).then((clientList) => {
             console.log('[SW] Client trovati:', clientList.length);
             
             // Se app è aperta
             if (clientList.length > 0) {
-                console.log('[SW] Invio messaggio a client esistente');
-                clientList[0].postMessage({ 
+                const client = clientList[0];
+                console.log('[SW] Focus su client esistente');
+                
+                // Invia messaggio
+                client.postMessage({ 
                     type: 'NOTIFICATION_ACTION', 
                     action: event.action || 'open',
                     date: notificationDate
                 });
-                return clientList[0].focus();
+                
+                // Focus sulla finestra
+                return client.focus();
             } 
             // Se app è chiusa
             else {
@@ -112,22 +120,7 @@ self.addEventListener('notificationclick', (event) => {
                     ? `./?quickadd=${notificationDate}` 
                     : './';
                     
-                return clients.openWindow(url).then((client) => {
-                    // Aspetta caricamento app
-                    return new Promise((resolve) => {
-                        setTimeout(() => {
-                            if (client) {
-                                console.log('[SW] Invio messaggio a nuovo client');
-                                client.postMessage({ 
-                                    type: 'NOTIFICATION_ACTION', 
-                                    action: event.action || 'open',
-                                    date: notificationDate
-                                });
-                            }
-                            resolve();
-                        }, 1500);
-                    });
-                });
+                return clients.openWindow(url);
             }
         })
     );
