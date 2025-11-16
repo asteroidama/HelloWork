@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hello-work-v2';  // ✅ Cambiato da v1 a v2
+const CACHE_NAME = 'hello-work-v2';
 const urlsToCache = [
   './',
   './index.html',
@@ -19,7 +19,7 @@ self.addEventListener('install', (event) => {
         return cache.addAll(urlsToCache);
       })
   );
-  self.skipWaiting();  // ✅ Forza attivazione immediata
+  self.skipWaiting();
 });
 
 // Attivazione
@@ -37,7 +37,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim();  // ✅ Prendi controllo immediato
+  self.clients.claim();
 });
 
 // Fetch
@@ -49,22 +49,17 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ============================ 
-// ✅ GESTIONE NOTIFICHE INTERATTIVE
+// GESTIONE NOTIFICHE
 // ============================
-
-// Ricevi messaggi dall'app
-// ============================ 
-// ✅ GESTIONE NOTIFICHE INTERATTIVE
-// ============================ 
 
 // Ricevi messaggi dall'app
 self.addEventListener('message', (event) => {
     console.log('[SW] Messaggio ricevuto:', event.data);
-    
+
     if (event.data.type === 'SHOW_START_NOTIFICATION') {
         console.log('[SW] Mostrando notifica inizio turno');
         const notificationDate = event.data.date || new Date().toISOString().split('T')[0];
-        
+
         self.registration.showNotification('🍕 Hello Work!', {
             body: 'Hai lavorato oggi?',
             icon: './icons/icon-192.png',
@@ -84,51 +79,19 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Gestisci click su notifica
+// ✅ STRATEGIA NUOVA: Apri SEMPRE l'app, salva azione per dopo
 self.addEventListener('notificationclick', (event) => {
     console.log('[SW] Click notifica - Azione:', event.action);
-    
+
     const notificationDate = event.notification.data?.notificationDate || new Date().toISOString().split('T')[0];
     const action = event.action || 'open';
-    
-    // ✅ CHIUDI SEMPRE la notifica
+
     event.notification.close();
-    
-    // ✅ Per "Riposo" - gestisci immediatamente senza aprire app
-    if (action === 'rest') {
-        event.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true })
-            .then((clientList) => {
-                if (clientList.length > 0) {
-                    // App aperta - invia messaggio
-                    clientList[0].postMessage({ 
-                        type: 'NOTIFICATION_ACTION', 
-                        action: 'rest',
-                        date: notificationDate
-                    });
-                    return clientList[0].focus();
-                } else {
-                    // App chiusa - salva per dopo
-                    return caches.open('temp-actions').then(cache => {
-                        return cache.put(
-                            new Request('/pending-action'),
-                            new Response(JSON.stringify({
-                                action: 'rest',
-                                date: notificationDate,
-                                timestamp: Date.now()
-                            }))
-                        );
-                    });
-                }
-            })
-        );
-        return; // ← IMPORTANTE: esci qui, NON aprire app
-    }
-    
-    // ✅ Per "Imposta" o click notifica - FORZA APERTURA APP
+
+    // ✅ SALVA L'AZIONE - sempre, per tutte le azioni
     event.waitUntil(
-        // Prima salva l'azione
         caches.open('temp-actions').then(cache => {
+            console.log('[SW] Salvo azione:', action);
             return cache.put(
                 new Request('/pending-action'),
                 new Response(JSON.stringify({
@@ -138,45 +101,27 @@ self.addEventListener('notificationclick', (event) => {
                 }))
             );
         }).then(() => {
-            // Poi cerca client esistenti
+            // Controlla se app è già aperta
             return clients.matchAll({ type: 'window', includeUncontrolled: true });
         }).then((clientList) => {
             if (clientList.length > 0) {
-                // App già aperta - focus e invia messaggio
-                const client = clientList[0];
-                client.postMessage({ 
+                // App aperta - invia messaggio diretto
+                console.log('[SW] App aperta - invio messaggio');
+                clientList[0].postMessage({ 
                     type: 'NOTIFICATION_ACTION', 
                     action: action,
                     date: notificationDate
                 });
-                return client.focus();
+                return clientList[0].focus();
             } else {
-                // ✅ APRI APP (funziona sempre perché siamo nel context della notifica)
-                console.log('[SW] Apertura forzata app');
+                // App chiusa - APRI
+                console.log('[SW] App chiusa - apertura');
                 return clients.openWindow('./');
             }
+        }).catch(err => {
+            console.error('[SW] Errore gestione click:', err);
+            // Fallback - prova ad aprire comunque
+            return clients.openWindow('./');
         })
     );
 });
-
-// Mostra notifica inizio turno
-//function showStartNotification() {
- //   console.log('[SW] showStartNotification chiamata');
- //   self.registration.showNotification('🍕 Hello Work!', {
-  //      body: 'Hai lavorato oggi?',
-  //      icon: './icons/icon-192.png',
-   //     badge: './icons/icon-192.png',
-   //     tag: 'shift-start',
-   //     requireInteraction: true,
-   //     actions: [
-  //          { action: 'rest', title: '😴 Riposo' },
-   //         { action: 'set-shift', title: '⏰ Imposta' }
-   //     ]
-   // }).then(() => {
-   //     console.log('[SW] Notifica inizio mostrata con successo');
-  //  }).catch(err => {
-  //      console.error('[SW] Errore mostrando notifica:', err);
- //   });
-//}
-
-
