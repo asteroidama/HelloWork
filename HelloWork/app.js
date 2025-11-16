@@ -696,6 +696,82 @@ function showQuickAddShift(dateStr) {
             showToast('✓ Turno aggiunto', 'success');
         }
     });
+
+// Elimina turno
+    document.getElementById('delete-shift-btn').addEventListener('click', () => {
+        if (confirm('Sei sicuro di voler eliminare questo turno?')) {
+            shifts = shifts.filter(s => s.id !== shiftId);
+            saveShifts();
+            renderCalendar();
+            updateSummary();
+            closeModal();
+            showToast('🗑️ Turno eliminato', 'success');
+        }
+    });
+    
+    // Sposta turno
+    document.getElementById('move-shift-btn').addEventListener('click', () => {
+        showMoveShiftModal(shiftId);
+    });
+}
+}
+
+function showMoveShiftModal(shiftId) {
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return;
+    
+    const modal = document.getElementById('shift-modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    
+    title.textContent = 'Sposta Turno';
+    
+    body.innerHTML = `
+        <div style="padding: var(--space-lg); text-align: center;">
+            <p style="margin-bottom: var(--space-lg); color: var(--text-secondary);">
+                Seleziona la nuova data per questo turno
+            </p>
+            <input type="date" id="new-shift-date" class="form-input" value="${shift.date}" 
+                style="font-size: 1.2rem; text-align: center; margin-bottom: var(--space-lg);">
+            <div style="display: flex; gap: var(--space-md);">
+                <button id="cancel-move" class="btn-primary" style="background: var(--text-secondary); flex: 1;">
+                    Annulla
+                </button>
+                <button id="confirm-move" class="btn-primary" style="flex: 1;">
+                    Sposta
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('cancel-move').addEventListener('click', () => {
+        editShiftTime(shiftId, shift.date);
+    });
+    
+    document.getElementById('confirm-move').addEventListener('click', () => {
+        const newDate = document.getElementById('new-shift-date').value;
+        
+        if (!newDate) {
+            showToast('⚠️ Seleziona una data', 'error');
+            return;
+        }
+        
+        // Controlla se esiste già un turno in quella data
+        const existingShift = shifts.find(s => s.date === newDate);
+        if (existingShift) {
+            if (!confirm('Esiste già un turno in questa data. Vuoi sostituirlo?')) {
+                return;
+            }
+            shifts = shifts.filter(s => s.date !== newDate);
+        }
+        
+        shift.date = newDate;
+        saveShifts();
+        renderCalendar();
+        updateSummary();
+        closeModal();
+        showToast('✓ Turno spostato', 'success');
+    });
 }
 
 // ============================
