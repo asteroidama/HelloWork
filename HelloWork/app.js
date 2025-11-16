@@ -1309,6 +1309,17 @@ if ('serviceWorker' in navigator) {
         .catch(err => console.log('Errore Service Worker:', err));
 }
 
+// ============================ 
+// ICONA CASUALE
+// ============================ 
+
+// Cambia icona ad ogni refresh/riapertura app
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        updateAppIcon();
+    }
+});
+
 // ============================
 // SWIPE GESTURES
 // ============================
