@@ -87,33 +87,48 @@ self.addEventListener('message', (event) => {
 // Gestisci click su notifica
 self.addEventListener('notificationclick', (event) => {
     console.log('[SW] Click notifica - Azione:', event.action);
-    event.notification.close();
     
     const notificationDate = event.notification.data?.notificationDate || new Date().toISOString().split('T')[0];
     const action = event.action || 'open';
     
-    // ✅ SALVA AZIONE IN LOCALSTORAGE per quando app si apre
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-        if (clients.length === 0) {
-            // App chiusa - salva per dopo
-            caches.open('temp-actions').then(cache => {
-                cache.put(
-                    new Request('/pending-action'),
-                    new Response(JSON.stringify({
-                        action: action,
-                        date: notificationDate,
-                        timestamp: Date.now()
-                    }))
-                );
-            });
-        }
-    });
+    // ✅ CHIUDI SEMPRE la notifica
+    event.notification.close();
     
+    // ✅ Per "Riposo" - gestisci immediatamente senza aprire app
+    if (action === 'rest') {
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then((clientList) => {
+                if (clientList.length > 0) {
+                    // App aperta - invia messaggio
+                    clientList[0].postMessage({ 
+                        type: 'NOTIFICATION_ACTION', 
+                        action: 'rest',
+                        date: notificationDate
+                    });
+                    return clientList[0].focus();
+                } else {
+                    // App chiusa - salva per dopo
+                    return caches.open('temp-actions').then(cache => {
+                        return cache.put(
+                            new Request('/pending-action'),
+                            new Response(JSON.stringify({
+                                action: 'rest',
+                                date: notificationDate,
+                                timestamp: Date.now()
+                            }))
+                        );
+                    });
+                }
+            })
+        );
+        return; // ← IMPORTANTE: esci qui, NON aprire app
+    }
+    
+    // ✅ Per "Imposta" o click sulla notifica - APRI APP
     event.waitUntil(
-        clients.matchAll({ 
-            type: 'window', 
-            includeUncontrolled: true 
-        }).then((clientList) => {
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clientList) => {
             console.log('[SW] Client trovati:', clientList.length);
             
             // Se app è aperta
@@ -129,10 +144,24 @@ self.addEventListener('notificationclick', (event) => {
                 
                 return client.focus();
             } 
-            // Se app è chiusa - apri
+            // Se app è chiusa
             else {
-                console.log('[SW] Apertura nuova finestra');
-                return clients.openWindow('./');
+                console.log('[SW] Apertura app');
+                
+                // ✅ SALVA azione pendente prima di aprire
+                return caches.open('temp-actions').then(cache => {
+                    return cache.put(
+                        new Request('/pending-action'),
+                        new Response(JSON.stringify({
+                            action: action,
+                            date: notificationDate,
+                            timestamp: Date.now()
+                        }))
+                    ).then(() => {
+                        // ✅ APRI APP dopo aver salvato
+                        return clients.openWindow('./');
+                    });
+                });
             }
         })
     );
