@@ -870,18 +870,69 @@ function handleNotificationAction(action, notificationDate) {
     localStorage.removeItem('notification_date');
 }
 
-function checkQuickAddFromNotification() {
+async function checkQuickAddFromNotification() {
+    // Check URL params
     const urlParams = new URLSearchParams(window.location.search);
     const quickAddDate = urlParams.get('quickadd');
     
     if (quickAddDate) {
-        // Rimuovi parametro dall'URL
         window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Aspetta che tutto sia caricato, poi apri lancette
         setTimeout(() => {
             showQuickAddShift(quickAddDate);
         }, 500);
+        return;
+    }
+    
+    // ✅ CHECK PENDING ACTIONS da Service Worker
+    if ('caches' in window) {
+        try {
+            const cache = await caches.open('temp-actions');
+            const response = await cache.match('/pending-action');
+            
+            if (response) {
+                const data = await response.json();
+                
+                // Verifica che non sia vecchia (max 10 secondi)
+                if (Date.now() - data.timestamp < 10000) {
+                    console.log('[APP] Eseguo azione pendente:', data);
+                    
+                    // Rimuovi l'azione
+                    await cache.delete('/pending-action');
+                    
+                    // Esegui azione
+                    if (data.action === 'rest') {
+                        const restShift = {
+                            id: Date.now(),
+                            date: data.date,
+                            startTime: '/',
+                            endTime: '/',
+                            hours: '0',
+                            hourlyRate: settings.defaultHourlyRate,
+                            earnings: '0.00',
+                            notes: '',
+                            isRest: true
+                        };
+                        
+                        shifts.push(restShift);
+                        saveShifts();
+                        renderCalendar();
+                        updateSummary();
+                        showToast('✓ Riposo registrato', 'success');
+                        
+                    } else if (data.action === 'set-shift') {
+                        switchTab('calendario');
+                        setTimeout(() => {
+                            showQuickAddShift(data.date);
+                        }, 500);
+                    }
+                } else {
+                    // Troppo vecchia, elimina
+                    await cache.delete('/pending-action');
+                }
+            }
+        } catch (error) {
+            console.error('[APP] Errore controllo azioni pendenti:', error);
+        }
     }
 }
 
