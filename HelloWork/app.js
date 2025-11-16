@@ -411,69 +411,138 @@ function openDayModal(dateStr, shift) {
 function editShiftTime(shiftId, dateStr) {
     const shift = shifts.find(s => s.id === shiftId);
     if (!shift) return;
-
+    
     const modal = document.getElementById('shift-modal');
     const body = document.getElementById('modal-body');
     const title = document.getElementById('modal-title');
-
-    title.textContent = 'Modifica Orario';
-
+    
+    const formattedDate = formatDate(dateStr);
+    title.textContent = `Modifica Turno - ${formattedDate}`;
+    
+    const isCurrentlyRest = shift.isRest || shift.startTime === '/';
+    
     body.innerHTML = `
-        <div style="padding: var(--space-lg); text-align: center;">
-            <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Inizio Turno</h3>
-            <input type="time" id="edit-start-time" value="${shift.startTime}"
-                style="font-size: 2rem; padding: var(--space-lg); width: 100%;
-                border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                background: var(--bg-primary); color: var(--text-primary);">
-            <button id="confirm-start" class="btn-primary" style="margin-top: var(--space-lg);">
-                Conferma Inizio
+        <div style="padding: var(--space-md);">
+            <!-- Checkbox riposo -->
+            <div style="margin-bottom: var(--space-lg); padding: var(--space-md); background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input type="checkbox" id="edit-no-work" ${isCurrentlyRest ? 'checked' : ''} style="width: 20px; height: 20px; cursor: pointer;">
+                    <span style="font-weight: 500;">😴 Non ho lavorato (riposo)</span>
+                </label>
+            </div>
+            
+            <!-- Sezione orari -->
+            <div id="edit-time-section" style="display: ${isCurrentlyRest ? 'none' : 'block'};">
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <h3 style="margin-bottom: var(--space-md); color: var(--text-secondary);">Ora Inizio</h3>
+                    <input type="time" id="edit-start" value="${shift.startTime !== '/' ? shift.startTime : '19:00'}" 
+                        style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                        border: 2px solid var(--border-color); border-radius: var(--radius-md); 
+                        background: var(--bg-primary); color: var(--text-primary);">
+                </div>
+                
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <h3 style="margin-bottom: var(--space-md); color: var(--text-secondary);">Ora Fine</h3>
+                    <input type="time" id="edit-end" value="${shift.endTime !== '/' ? shift.endTime : '23:00'}" 
+                        style="font-size: 2rem; padding: var(--space-lg); width: 100%; 
+                        border: 2px solid var(--border-color); border-radius: var(--radius-md); 
+                        background: var(--bg-primary); color: var(--text-primary);">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Paga Oraria (€)</label>
+                    <input type="number" id="edit-hourly" class="form-input" step="0.01" value="${shift.hourlyRate}" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Note</label>
+                <textarea id="edit-notes" class="form-textarea" rows="2">${shift.notes || ''}</textarea>
+            </div>
+            
+<div style="display: flex; gap: var(--space-md); margin-top: var(--space-md); justify-content: center;">
+    <button id="move-shift-btn" class="icon-action-btn" title="Sposta turno">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13l-7 7m0 0l7-7m-7 7V3h11l5 5v14"/>
+        </svg>
+    </button>
+    <button id="delete-shift-btn" class="icon-action-btn danger" title="Elimina turno">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+    </button>
+</div>
+
+            <button id="update-shift-btn" class="btn-primary" style="width: 100%; margin-top: var(--space-md);">
+                Aggiorna Turno
             </button>
         </div>
     `;
 
-    document.getElementById('confirm-start').addEventListener('click', () => {
-        const newStart = document.getElementById('edit-start-time').value;
-
-        body.innerHTML = `
-            <div style="padding: var(--space-lg); text-align: center;">
-                <h3 style="margin-bottom: var(--space-lg); color: var(--text-secondary);">Fine Turno</h3>
-                <input type="time" id="edit-end-time" value="${shift.endTime}"
-                    style="font-size: 2rem; padding: var(--space-lg); width: 100%;
-                    border: 2px solid var(--border-color); border-radius: var(--radius-md);
-                    background: var(--bg-primary); color: var(--text-primary);">
-                <button id="confirm-end" class="btn-primary" style="margin-top: var(--space-lg);">
-                    Conferma Fine
-                </button>
-            </div>
-        `;
-
-        document.getElementById('confirm-end').addEventListener('click', () => {
-            const newEnd = document.getElementById('edit-end-time').value;
-
-            // Ricalcola ore e guadagno
-            const start = new Date(`${shift.date}T${newStart}`);
-            const end = new Date(`${shift.date}T${newEnd}`);
-
-            if (end < start) {
-                end.setDate(end.getDate() + 1);
-            }
-
-            const hours = (end - start) / (1000 * 60 * 60);
-            const earnings = hours * shift.hourlyRate;
-
-            // Aggiorna turno
-            shift.startTime = newStart;
-            shift.endTime = newEnd;
-            shift.hours = hours.toFixed(2);
-            shift.earnings = earnings.toFixed(2);
-
+    
+    // Gestione checkbox
+    const checkbox = document.getElementById('edit-no-work');
+    const timeSection = document.getElementById('edit-time-section');
+    
+    checkbox.addEventListener('change', () => {
+        timeSection.style.display = checkbox.checked ? 'none' : 'block';
+    });
+    
+    // Salva modifiche
+    document.getElementById('update-shift-btn').addEventListener('click', () => {
+        const isRest = checkbox.checked;
+        const notes = document.getElementById('edit-notes').value;
+        
+        if (isRest) {
+            // Aggiorna a riposo
+            shift.startTime = '/';
+            shift.endTime = '/';
+            shift.hours = '0';
+            shift.earnings = '0.00';
+            shift.notes = notes;
+            shift.isRest = true;
+            
             saveShifts();
             renderCalendar();
             updateSummary();
             closeModal();
-
-            showToast('Orario aggiornato! ✓', 'success');
-        });
+            showToast('✓ Turno aggiornato', 'success');
+        } else {
+            // Aggiorna turno normale
+            const startTime = document.getElementById('edit-start').value;
+            const endTime = document.getElementById('edit-end').value;
+            const hourlyRate = parseFloat(document.getElementById('edit-hourly').value);
+            
+            if (!startTime || !endTime) {
+                showToast('⚠️ Inserisci gli orari', 'error');
+                return;
+            }
+            
+            const start = new Date(`${shift.date}T${startTime}`);
+            const end = new Date(`${shift.date}T${endTime}`);
+            
+            if (end < start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            const hours = (end - start) / (1000 * 60 * 60);
+            const earnings = hours * hourlyRate;
+            
+            shift.startTime = startTime;
+            shift.endTime = endTime;
+            shift.hours = hours.toFixed(2);
+            shift.hourlyRate = hourlyRate;
+            shift.earnings = earnings.toFixed(2);
+            shift.notes = notes;
+            shift.isRest = false;
+            
+            saveShifts();
+            renderCalendar();
+            updateSummary();
+            closeModal();
+            showToast('✓ Turno aggiornato', 'success');
+        }
     });
 }
 
