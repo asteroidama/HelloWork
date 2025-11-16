@@ -463,9 +463,12 @@ function editShiftTime(shiftId, dateStr) {
             
 <div style="display: flex; gap: var(--space-md); margin-top: var(--space-md); justify-content: center;">
     <button id="move-shift-btn" class="icon-action-btn" title="Sposta turno">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10 13l-7 7m0 0l7-7m-7 7V3h11l5 5v14"/>
-        </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="17 1 21 5 17 9"></polyline>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+    <polyline points="7 23 3 19 7 15"></polyline>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+</svg>
     </button>
     <button id="delete-shift-btn" class="icon-action-btn danger" title="Elimina turno">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
